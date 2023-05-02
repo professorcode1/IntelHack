@@ -10,38 +10,38 @@
 
 
 static auto exception_handler = [](sycl::exception_list e_list) {
-    for (std::exception_ptr const& e : e_list) {
-        try {
-            std::rethrow_exception(e);
-        }
-        catch (std::exception const& e) {
+	for (std::exception_ptr const& e : e_list) {
+		try {
+			std::rethrow_exception(e);
+		}
+		catch (std::exception const& e) {
 #if _DEBUG
-            std::cout << "Failure" << std::endl;
+			std::cout << "Failure" << std::endl;
 #endif
-            std::terminate();
-        }
-    }
+			std::terminate();
+		}
+	}
 };
 
 class SYCLComputer
 {
 private:
-    sycl::queue q;
-    const int gpuLocalMemory;
-    const int maxWorkGroupSize;
-    const int maxSubGroupCount;
+	sycl::queue q;
+	const int gpuLocalMemory;
+	const int maxWorkGroupSize;
+	const int maxSubGroupCount;
 
 	template <typename T>
 	void copy_buffer(sycl::buffer<T>& from, sycl::buffer<T>& to) {
 		using namespace sycl;
 		const size_t buffer_length = from.size();
-		this->q.submit([&](handler & h) {
+		this->q.submit([&](handler& h) {
 			accessor fromAccessor(from, h, read_only);
 			accessor toAccessor(to, h, write_only);
 			h.parallel_for(range<1>{buffer_length}, [=](id<1> threadId) {
 				toAccessor[threadId] = fromAccessor[threadId];
+				});
 			});
-		});
 		this->q.wait();
 	}
 	template <typename T>
@@ -55,8 +55,8 @@ private:
 					if (thread_id < stride && thread_id + stride < dataSize) {
 						bufferAccessor[thread_id] += bufferAccessor[thread_id + stride];
 					}
+					});
 				});
-			});
 		}
 		this->q.wait();
 	}
@@ -70,19 +70,19 @@ private:
 		}
 		this->q.submit([&](handler& h) {
 			accessor meanCalculationBufferAccessor(meanCalculationBuffer, h, read_write);
-		h.parallel_for(dataSizeSycl, [=](id<1> thread_id) {
-			meanCalculationBufferAccessor[thread_id] *= std::pow(base, dataSize - (thread_id + 1));
+			h.parallel_for(dataSizeSycl, [=](id<1> thread_id) {
+				meanCalculationBufferAccessor[thread_id] *= std::pow(base, dataSize - (thread_id + 1));
+				});
 			});
-		});
 		this->reduce_buffer_add<float>(meanCalculationBuffer, dataSize);
 		host_accessor result(meanCalculationBuffer, read_only);
 		const float num = result[0];
 		const float den = geometric_mean(1, base, dataSize);
-		return num/den;
+		return num / den;
 	}
 
 	float IndexWeightedVarianceCalculation(
-		sycl::buffer<float>& VarianceCalculationBuffer, const float base, 
+		sycl::buffer<float>& VarianceCalculationBuffer, const float base,
 		const float mean
 	) {
 		using namespace sycl;
@@ -98,8 +98,8 @@ private:
 				VarianceCalculationBufferAccessor[thread_id] -= mean;
 				VarianceCalculationBufferAccessor[thread_id] *= VarianceCalculationBufferAccessor[thread_id];
 				VarianceCalculationBufferAccessor[thread_id] *= weight;
+				});
 			});
-		});
 		this->reduce_buffer_add<float>(VarianceCalculationBuffer, dataSize);
 		host_accessor result(VarianceCalculationBuffer, read_only);
 
@@ -119,13 +119,13 @@ private:
 			accessor bufferAccessor(buf, h, read_write);
 			h.parallel_for(range<1>(size - 1), [=](id<1> thread_id) {
 				bufferAccessor[thread_id + 1] = (bufferAccessor[thread_id + 1] - bufferAccessor[thread_id]) / bufferAccessor[thread_id + 1];
+				});
 			});
-		});
 		this->q.wait();
 		this->q.submit([&](handler& h) {
 			accessor bufferAccessor(buf, h, read_write);
 			h.single_task([=]() {bufferAccessor[0] = 0.0; });
-		});
+			});
 		this->q.wait();
 	}
 	void BufferInplaceLogPlusOne(sycl::buffer<float>& buf) {
@@ -134,12 +134,12 @@ private:
 		this->q.submit([&](handler& h) {
 			accessor bufferAccessor(buf, h, read_write);
 			h.parallel_for(range<1>(size), [=](id<1> thread_id) {
-				bufferAccessor[thread_id] = std::log(bufferAccessor[thread_id]+1);
+				bufferAccessor[thread_id] = std::log(bufferAccessor[thread_id] + 1);
+				});
 			});
-		});
 		this->q.wait();
 	}
-	std::pair<float, float> IndexWeightedAverageAndSigma(sycl::buffer<float> &data, const float base) {
+	std::pair<float, float> IndexWeightedAverageAndSigma(sycl::buffer<float>& data, const float base) {
 		sycl::buffer<float> meanCalculationBuffer(data.size());
 		this->copy_buffer(data, meanCalculationBuffer);
 		sycl::buffer<float> VarianceCalculationBuffer(data.size());
@@ -160,39 +160,39 @@ private:
 		return res;
 	}
 public:
-    SYCLComputer() :
-        q(sycl::gpu_selector_v, exception_handler),
-        gpuLocalMemory{ q.get_device().get_info<sycl::info::device::local_mem_size>() },
-        maxWorkGroupSize{ q.get_device().get_info<sycl::info::device::max_work_group_size>() },
-        maxSubGroupCount{ q.get_device().get_info<sycl::info::device::max_num_sub_groups>() }
-    {};
-    std::pair<float,float> StockMuAndSigma(const std::vector<float> &dataSource, const float base)
-    {
+	SYCLComputer() :
+		q(sycl::gpu_selector_v, exception_handler),
+		gpuLocalMemory{ q.get_device().get_info<sycl::info::device::local_mem_size>() },
+		maxWorkGroupSize{ q.get_device().get_info<sycl::info::device::max_work_group_size>() },
+		maxSubGroupCount{ q.get_device().get_info<sycl::info::device::max_num_sub_groups>() }
+	{};
+	std::pair<float, float> StockMuAndSigma(const std::vector<float>& dataSource, const float base)
+	{
 		sycl::buffer<float, 1> data(dataSource);
 		this->BufferInplacePercentDifference(data);
 		this->BufferInplaceLogPlusOne(data);
 		return this->IndexWeightedAverageAndSigma(data, base);
-    }
+	}
 	std::vector<std::vector<float>> predict(
-		const float mu, const float sigma, 
+		const float mu, const float sigma,
 		const float starting_price, const int number_of_simulations,
 		const int number_of_days
-	){
+	) {
 		using namespace std;
 		using namespace sycl;
 		vector<vector<float>> result(number_of_simulations, vector<float>(number_of_days));
 		buffer<float, 2> gpuData(range<2>{number_of_simulations, number_of_days});
-		const float drift = mu - sigma * sigma / 2;	
+		const float drift = mu - sigma * sigma / 2;
 		{
 			auto normals = normalRandomNumber(number_of_simulations);
 			buffer<float, 1> normalsGpu(normals);
 			this->q.submit([&](handler& h) {
 				accessor resultAccessor(gpuData, h, read_write);
-			accessor normalsAccessor(normalsGpu, h, read_only);
-			h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
-				const float return__ = drift + normalsAccessor[thread_id] * sigma;
-				resultAccessor[thread_id][0] = starting_price * std::exp(return__);
-				});
+				accessor normalsAccessor(normalsGpu, h, read_only);
+				h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
+					const float return__ = drift + normalsAccessor[thread_id] * sigma;
+					resultAccessor[thread_id][0] = starting_price * std::exp(return__);
+					});
 				}).wait();
 
 		}
@@ -208,8 +208,8 @@ public:
 					const float return__ = drift + normalsAccessor[thread_id] * sigma;
 					const float last_price = resultAccessor[thread_id][day - 1];
 					resultAccessor[thread_id][day] = last_price * std::exp(return__);
-				});
-			}).wait();
+					});
+				}).wait();
 		}
 		host_accessor resultHostAccessor(gpuData, read_only);
 		for (int sim = 0; sim < number_of_simulations; sim++) {
@@ -220,4 +220,3 @@ public:
 		return result;
 	}
 };
-
