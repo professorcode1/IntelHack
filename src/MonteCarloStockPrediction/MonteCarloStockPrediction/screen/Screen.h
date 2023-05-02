@@ -5,12 +5,15 @@
 #include <string>
 #include <map>
 #include <iostream>
+#include <fstream>
+#include "Utils.h"
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];
 	char APIKeyFile[500];
 };
 struct SecondScreen {
 	std::map<std::string, std::string> CompanyNameToSymbol;
+	std::string APIKey;
 };
 enum class ScreenState {
 	First,
@@ -20,9 +23,12 @@ class Screen
 {
 private:
 	FirstScreen firstScreen;
+	SecondScreen secondScreen;
 	ScreenState screenstate;
 
 	void FirstScreenRender();
+	void LoadSecondScreen();
+	void SecondScreenRender();
 public:
 	Screen();
 	void Render();

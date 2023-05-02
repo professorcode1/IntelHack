@@ -93,6 +93,7 @@
     <ClCompile Include="Engine\SYCLComputer.cpp" />
     <ClCompile Include="Engine\Utilities.cpp" />
     <ClCompile Include="screen\Screen.cpp" />
+    <ClCompile Include="screen\Utils.cpp" />
     <ClCompile Include="vendor\iamgui\imgui.cpp" />
     <ClCompile Include="vendor\iamgui\imgui_demo.cpp" />
     <ClCompile Include="vendor\iamgui\imgui_draw.cpp" />
@@ -105,6 +106,7 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Engine\Utilities.h" />
     <ClInclude Include="Engine\SYCLComputer.h" />
+    <ClInclude Include="screen\Utils.h" />
     <ClInclude Include="screen\Screen.h" />
     <ClInclude Include="vendor\HTTPRequest\HTTPRequest.h" />
     <ClInclude Include="vendor\iamgui\imconfig.h" />
