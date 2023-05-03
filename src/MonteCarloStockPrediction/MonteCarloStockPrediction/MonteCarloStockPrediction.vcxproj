@@ -108,7 +108,6 @@
     <ClInclude Include="Engine\SYCLComputer.h" />
     <ClInclude Include="screen\Utils.h" />
     <ClInclude Include="screen\Screen.h" />
-    <ClInclude Include="vendor\HTTPRequest\HTTPRequest.h" />
     <ClInclude Include="vendor\iamgui\imconfig.h" />
     <ClInclude Include="vendor\iamgui\imgui.h" />
     <ClInclude Include="vendor\iamgui\imgui_impl_glfw.h" />

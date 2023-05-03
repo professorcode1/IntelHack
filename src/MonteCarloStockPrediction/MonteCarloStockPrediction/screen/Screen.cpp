@@ -3,8 +3,8 @@
 Screen::Screen() :
     screenstate{ ScreenState::First }
 {
-    strcpy(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
-    strcpy(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key.txt");
+    strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
+    strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key.txt");
 }
 
 void Screen::FirstScreenRender() {
@@ -30,8 +30,8 @@ void Screen::FirstScreenRender() {
 
     ImGui::End();
 
-//	if (show_demo_window)
-	//	ImGui::ShowDemoWindow(&show_demo_window);
+	if (show_demo_window)
+		ImGui::ShowDemoWindow(&show_demo_window);
 
 }
 
@@ -44,13 +44,11 @@ void Screen::LoadSecondScreen() {
 	getline(APIfileStream, this->secondScreen.APIKey);
 	const auto companyNamesFull = ReadCSVExtractStringColumns(
 		this->firstScreen.NameToSymbolCSVFile,
-		"Name",
-		10
+		"Name"
 	);
 	const auto companySybmol = ReadCSVExtractStringColumns(
 		this->firstScreen.NameToSymbolCSVFile,
-		"Symbol",
-		10
+		"Symbol"
 	);
 	if (companyNamesFull.size() != companySybmol.size()) {
 		std::cout << companyNamesFull.size() <<"\t" << companySybmol.size() << std::endl;
@@ -71,41 +69,61 @@ void Screen::LoadSecondScreen() {
 
 void Screen::SecondScreenRender() {
 	static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-	const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
+//	const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
 
-	ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 20);
-
+//	ImVec2 outer_size = ImVec2(0.0f, TEXT_BASE_HEIGHT * 20);
+	constexpr int columnCount = 5;
 	ImGui::Begin("Select Stock to analyse");
-	ImGui::BeginTable("Stock Table", 5,flags, outer_size);
-	ImGui::TableSetupScrollFreeze(0, 1); // Make top row always visible
-	ImGui::TableSetupColumn("One", ImGuiTableColumnFlags_None);
-	ImGui::TableSetupColumn("Two", ImGuiTableColumnFlags_None);
-	ImGui::TableSetupColumn("Three", ImGuiTableColumnFlags_None);
-	ImGui::TableSetupColumn("Four", ImGuiTableColumnFlags_None);
-	ImGui::TableSetupColumn("Five", ImGuiTableColumnFlags_None);
-	ImGui::TableHeadersRow();
+	if (!ImGui::BeginTable("Stock Table", columnCount, flags)) {
+		return;
+	}
 
-	// Demonstrate using clipper for large vertical lists
+	std::map<std::string, std::string>::iterator StockSelected;
+	bool isStockSelected = false;
+	const int rowCount = this->secondScreen.CompanyNameToSymbol.size() / columnCount + 
+		(this->secondScreen.CompanyNameToSymbol.size() % 5 > 0);
 	ImGuiListClipper clipper;
-	clipper.Begin(this->secondScreen.CompanyNameToSymbol.size() / 5);
-	std::map<std::string, std::string>::iterator 
-		CompanyNameToSymbolIterator = this->secondScreen.CompanyNameToSymbol.begin();
+	clipper.Begin(rowCount);
 	while (clipper.Step())
 	{
+		std::map<std::string, std::string>::iterator
+			CompanyNameToSymbolIterator = this->secondScreen.CompanyNameToSymbol.begin();
+		const int advance = min(clipper.DisplayStart * columnCount, (int)this->secondScreen.CompanyNameToSymbol.size());
+		std::advance(CompanyNameToSymbolIterator, advance);
 		for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
 		{
 			ImGui::TableNextRow();
 			for (int column = 0; column < 5; column++)
 			{
 				ImGui::TableSetColumnIndex(column);
-				ImGui::Text(CompanyNameToSymbolIterator->first.data());
-				std::advance(CompanyNameToSymbolIterator, 1);
+				if (CompanyNameToSymbolIterator != this->secondScreen.CompanyNameToSymbol.end()) {
+					if (ImGui::Button(CompanyNameToSymbolIterator->first.data())) {
+						isStockSelected = true;
+						StockSelected = CompanyNameToSymbolIterator;
+					};
+					std::advance(CompanyNameToSymbolIterator, 1);
+				}
+				else {
+					ImGui::Text("");
+				}
 			}
 		}
 	}
 	ImGui::EndTable();
 	ImGui::End();
+	if (isStockSelected) {
+		this->LoadThirdScreen(StockSelected);
+	}
 }
+void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockSelected) {
+	this->thirdScreen.StockName = StockSelected->first;
+	this->thirdScreen.StockSymbol = StockSelected->second;
+	this->screenstate = ScreenState::Third;
+	auto r = cpr::Get(cpr::Url{ "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo" });
+	std::cout << r.text << std::endl;
+}
+
+
 void Screen::Render() {
 	switch (this->screenstate)
 	{
