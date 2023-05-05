@@ -8,6 +8,7 @@
 #include <fstream>
 #include "Utils.h"
 #include <cpr/cpr.h>
+#include <future>
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];
 	char APIKeyFile[500];
@@ -19,11 +20,13 @@ struct SecondScreen {
 struct ThirdScreen {
 	std::string StockName;
 	std::string StockSymbol;
+	cpr::AsyncResponse *APICallResponse;
 };
 enum class ScreenState {
 	First,
 	Second,
-	Third
+	Third,
+	Fourth
 };
 class Screen
 {
@@ -37,6 +40,7 @@ private:
 	void LoadSecondScreen();
 	void SecondScreenRender();
 	void LoadThirdScreen(std::map<std::string, std::string>::iterator StockSelected);
+	void ThirdScreenRender();
 public:
 	Screen();
 	void Render();

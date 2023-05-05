@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 
+
 std::vector<std::string> ReadCSVExtractStringColumns(
 	std::string file,
 	std::string columnName,

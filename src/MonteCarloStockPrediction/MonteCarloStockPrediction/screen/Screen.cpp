@@ -118,11 +118,35 @@ void Screen::SecondScreenRender() {
 void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockSelected) {
 	this->thirdScreen.StockName = StockSelected->first;
 	this->thirdScreen.StockSymbol = StockSelected->second;
+	
+	auto r = cpr::GetAsync(
+		cpr::Url("https://alpha-vantage.p.rapidapi.com/query"),
+		cpr::Parameters{
+			{"function" , "TIME_SERIES_DAILY"},
+			{"symbol" , this->thirdScreen.StockSymbol },
+			{"datatype" , "json"},
+			{"outputsize" , "compact"}
+		},
+		cpr::Header{
+			{   "X-RapidAPI-Host", "alpha-vantage.p.rapidapi.com"},
+			{	"X-RapidAPI-Key" , this->secondScreen.APIKey}
+		}
+	);
+	this->thirdScreen.APICallResponse = new cpr::AsyncResponse(std::move(r));
 	this->screenstate = ScreenState::Third;
-	auto r = cpr::Get(cpr::Url{ "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo" });
-	std::cout << r.text << std::endl;
 }
 
+void Screen::ThirdScreenRender() {
+	if (this->thirdScreen.APICallResponse->wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+		std::cout << this->thirdScreen.APICallResponse->get().text << std::endl;
+		this->screenstate = ScreenState::Fourth;
+	}
+	else {
+		ImGui::Begin("Stock data is being downloaded");
+		ImGui::Text("Please wait");
+		ImGui::End();
+	}
+}
 
 void Screen::Render() {
 	switch (this->screenstate)
@@ -131,6 +155,8 @@ void Screen::Render() {
 		return this->FirstScreenRender();
 	case ScreenState::Second:
 		return this->SecondScreenRender();
+	case ScreenState::Third:
+		return this->ThirdScreenRender();
 	default:
 		std::cout << "Default hit in screen render function. Terminating" << std::endl;
 		std::terminate();
