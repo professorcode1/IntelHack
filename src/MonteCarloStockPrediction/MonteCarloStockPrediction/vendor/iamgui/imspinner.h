@@ -34,7 +34,7 @@
 #ifdef __has_include
 #if !__has_include("imgui.h")
 #error "Couldn't find imgui.h in the header include path, please add it to the path!"
-#endif // !"imgui.h"
+#endif // !<imgui.h>
 #endif // __has_include
 
  // imgui headers

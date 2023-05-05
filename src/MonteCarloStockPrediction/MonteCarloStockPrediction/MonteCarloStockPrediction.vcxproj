@@ -114,6 +114,7 @@
     <ClInclude Include="vendor\iamgui\imgui_impl_opengl3.h" />
     <ClInclude Include="vendor\iamgui\imgui_impl_opengl3_loader.h" />
     <ClInclude Include="vendor\iamgui\imgui_internal.h" />
+    <ClInclude Include="vendor\iamgui\imspinner.h" />
     <ClInclude Include="vendor\iamgui\imstb_rectpack.h" />
     <ClInclude Include="vendor\iamgui\imstb_textedit.h" />
     <ClInclude Include="vendor\iamgui\imstb_truetype.h" />

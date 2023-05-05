@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-static std::vector<std::string> string_split(std::string& line, std::string delimiter) {
+std::vector<std::string> string_split(std::string& line, std::string delimiter) {
 	using namespace std;
 	vector<string> split;
 	size_t pos = 0;

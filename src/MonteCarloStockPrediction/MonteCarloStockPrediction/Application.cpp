@@ -3,6 +3,11 @@ static void glfw_error_callback(int error, const char* description)
 {
     fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
+static inline bool file_exists(const std::string& name) {
+    std::ifstream f(name.c_str());
+    return f.good();
+}
+
 Application::Application() {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
@@ -61,7 +66,11 @@ Application::Application() {
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != nullptr);
+    const std::string good_font_file_location = "C:\\Users\\raghk\\Documents\\IntelHack\\src\\MonteCarloStockPrediction\\MonteCarloStockPrediction\\assets\\Roboto-Medium.ttf";
+    if(file_exists(good_font_file_location)) {
 
+        ImFont* font = io.Fonts->AddFontFromFileTTF(good_font_file_location.c_str(), 20.0f);
+    }
     // Our state
 
 }
