@@ -8,7 +8,16 @@ static inline bool file_exists(const std::string& name) {
     return f.good();
 }
 
-Application::Application() {
+
+Application::Application() :screen{ 
+    [this](boost::gregorian::date date, float value) {
+        this->data.insert(std::make_pair(date, value));
+    },
+    cl::sycl::device::get_devices(),
+    [this](std::string deviceName, int workload) {
+        this->deviceNameToWorkload.insert(std::make_pair(deviceName, workload));
+    }
+} {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
         std::cout << "glfwInit failed. Terminating program" << std::endl;

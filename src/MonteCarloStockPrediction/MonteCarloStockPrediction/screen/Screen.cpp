@@ -7,8 +7,15 @@ char const* const FirstScreen::StockMetrics[5] = {
 		"5. volume"
 };
 
-Screen::Screen() :
-    screenstate{ ScreenState::First }
+Screen::Screen(
+	const std::function<void(boost::gregorian::date, float)>& populate_Data,
+	const std::vector<cl::sycl::device>& AllDevice,
+	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference
+) :
+    screenstate{ ScreenState::First },
+	m_populate_Data{ populate_Data },
+	m_AllDevice{AllDevice},
+	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference }
 {
     strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
     strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key");
@@ -196,61 +203,69 @@ void Screen::ThirdScreenRender() {
 
 void Screen::LoadFourthScreen(const cpr::Response& response) {
 	using namespace boost::gregorian;
-		const nlohmann::json responseJson = nlohmann::json::parse(response.text);
-		const nlohmann::json timeseries = responseJson.at("Time Series (Daily)");
-		for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
-			date date(from_simple_string(time_quanta.key()));
-			const std::string valueString = time_quanta.value().at(this->secondScreen.StockMetricToUse);
-			const float value = std::stof(valueString);
-			this->fourthScreen.data.insert(std::make_pair(date, value));
-		}
+	const nlohmann::json responseJson = nlohmann::json::parse(response.text);
+	const nlohmann::json timeseries = responseJson.at("Time Series (Daily)");
+	for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
+		date date(from_simple_string(time_quanta.key()));
+		const std::string valueString = time_quanta.value().at(this->secondScreen.StockMetricToUse);
+		const float value = std::stof(valueString);
+		this->m_populate_Data(date, value);
+	}
+	this->fourthScreen.preference.resize(this->m_AllDevice.size());
+	std::fill(this->fourthScreen.preference.begin(), this->fourthScreen.preference.end(), 0);
 	this->screenstate = ScreenState::Fourth;
 }
 
 void Screen::FourthScreenRender() {
-	static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
-
-	ImGui::Begin("Select Stock to analyse");
-	if (!ImGui::BeginTable("Stock Table", 1, flags)) {
-		return;
+	ImGui::Begin("Device Workload");
+	const int deviceCount = this->m_AllDevice.size();
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	for (int deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
+		std::string DeviceName = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::name>();
+		ImGui::Text(DeviceName.c_str());
+		const int max_compute_units = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::max_compute_units>();
+		ImGui::Text("Compute Units :: %d", max_compute_units);
+		const std::string sliderName = std::string("Device #") + std::to_string(deviceIndex);
+		ImGui::SliderInt(sliderName.c_str(), this->fourthScreen.preference.data() + deviceIndex, 0, 100);
+		ImGui::Dummy(ImVec2(15.0, 15.0));
+	}
+	if (ImGui::Button("Submit")) {
+		this->LoadFifthScreen();
 	}
 
-	int rowCount = this->fourthScreen.data.size();
-	ImGuiListClipper clipper;
-	clipper.Begin(rowCount);
-	const float TEXT_BASE_HEIGHT = ImGui::GetTextLineHeightWithSpacing();
-	const float min_row_height = (float)(int)(TEXT_BASE_HEIGHT * 0.30f * 5);
+	ImGui::End();
+}
 
-	while (clipper.Step()) {
-		std::map<boost::gregorian::date, float>::iterator
-			CompanyNameToSymbolIterator = this->fourthScreen.data.begin();
-		const int advance_left = clipper.DisplayStart;
-		std::advance(CompanyNameToSymbolIterator, advance_left);
-		for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++) {
-			ImGui::TableNextRow(ImGuiTableRowFlags_None, min_row_height);
-			ImGui::TableSetColumnIndex(0);
-			std::string text = to_simple_string(CompanyNameToSymbolIterator->first);
-			text += " :: %f";
-			ImGui::Text(text.c_str(), CompanyNameToSymbolIterator->second);
-			std::advance(CompanyNameToSymbolIterator, 1);
-		}
+void Screen::LoadFifthScreen() {
+	const int deviceCount = this->m_AllDevice.size();
+	for (int deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
+		this->m_populate_DeviceWorkloadPreference(
+			this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::name>(),
+			this->fourthScreen.preference[deviceIndex]
+		);
 	}
-	ImGui::EndTable();
+	this->screenstate = ScreenState::Fifth;
+}
+void Screen::FifthScreenRender() {
+	ImGui::Begin("Fifth Screen");
+	ImGui::Text("Hello I am fifth screen");
 	ImGui::End();
 }
 
 void Screen::Render() {
 	switch (this->screenstate)	{
-	case ScreenState::First:
-		return this->FirstScreenRender();
-	case ScreenState::Second:
-		return this->SecondScreenRender();
-	case ScreenState::Third:
-		return this->ThirdScreenRender();
-	case ScreenState::Fourth:
-		return this->FourthScreenRender();
-	default:
-		std::cout << "Default hit in screen render function. Terminating" << std::endl;
-		std::terminate();
+		case ScreenState::First:
+			return this->FirstScreenRender();
+		case ScreenState::Second:
+			return this->SecondScreenRender();
+		case ScreenState::Third:
+			return this->ThirdScreenRender();
+		case ScreenState::Fourth:
+			return this->FourthScreenRender();
+		case ScreenState::Fifth:
+			return this->FifthScreenRender();
+		default:
+			std::cout << "Default hit in screen render function. Terminating" << std::endl;
+			std::terminate();
 	}
 }

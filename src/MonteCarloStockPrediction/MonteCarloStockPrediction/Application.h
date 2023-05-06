@@ -7,12 +7,15 @@
 #include <iostream>
 #include <fstream>
 #include "screen/Screen.h"
+#include <CL/sycl.hpp>
 
 class Application
 {
 private:
 	GLFWwindow* window;
 	Screen screen;
+	std::map<boost::gregorian::date, float> data;
+	std::map<std::string, int> deviceNameToWorkload;
 public:
 	Application();
 	~Application();

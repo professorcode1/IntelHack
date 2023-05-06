@@ -12,6 +12,8 @@
 #include <future>
 #include <nlohmann/json.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
+#include <CL/sycl.hpp>
+
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];
 	char APIKeyFile[500];
@@ -30,13 +32,14 @@ struct ThirdScreen {
 	cpr::AsyncResponse *APICallResponse;
 };
 struct FourthScreen {
-	std::map<boost::gregorian::date, float> data;
+	std::vector<int> preference;
 };
 enum class ScreenState {
 	First,
 	Second,
 	Third,
-	Fourth
+	Fourth,
+	Fifth
 };
 class Screen
 {
@@ -54,8 +57,18 @@ private:
 	void ThirdScreenRender();
 	void LoadFourthScreen(const cpr::Response& response);
 	void FourthScreenRender();
+	void LoadFifthScreen();
+	void FifthScreenRender();
+
+	std::function<void(boost::gregorian::date, float)> m_populate_Data;
+	std::vector<cl::sycl::device> m_AllDevice;
+	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
 public:
-	Screen();
+	Screen(
+		const std::function<void(boost::gregorian::date, float)> &populate_Data,
+		const std::vector<cl::sycl::device> &AllDevice,
+		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference
+	);
 	void Render();
 };
 
