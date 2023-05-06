@@ -10,12 +10,14 @@ char const* const FirstScreen::StockMetrics[5] = {
 Screen::Screen(
 	const std::function<void(boost::gregorian::date, float)>& populate_Data,
 	const std::vector<cl::sycl::device>& AllDevice,
-	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference
+	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
+	const std::function<AlgorithmParameter& ()>& parameterReference
 ) :
     screenstate{ ScreenState::First },
 	m_populate_Data{ populate_Data },
 	m_AllDevice{AllDevice},
-	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference }
+	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference },
+	m_parameterReference{ parameterReference }
 {
     strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
     strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key");
@@ -247,8 +249,76 @@ void Screen::LoadFifthScreen() {
 	this->screenstate = ScreenState::Fifth;
 }
 void Screen::FifthScreenRender() {
+	static bool inputs_step = true;
+	const float f32_one = 1.0f;
+	AlgorithmParameter& parameter = this->m_parameterReference();
 	ImGui::Begin("Fifth Screen");
-	ImGui::Text("Hello I am fifth screen");
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Volatility Theta Parameters");
+	ImGui::InputScalar("lower", ImGuiDataType_Float, &parameter.m_volatility_theta.lower);
+	ImGui::InputScalar("upper", ImGuiDataType_Float, &parameter.m_volatility_theta.upper);
+	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_theta.testval);
+	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_theta.guassian_step_sd);
+	
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Volatility Mu Parameters");
+	ImGui::InputScalar("mean", ImGuiDataType_Float, &parameter.m_volatility_mu.mean);
+	ImGui::InputScalar("standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.sd);
+	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_mu.testval);
+	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.guassian_step_sd);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Volatility Sigma Parameters");
+	ImGui::InputScalar("lower", ImGuiDataType_Float, &parameter.m_volatility_sigma.lower);
+	ImGui::InputScalar("upper", ImGuiDataType_Float, &parameter.m_volatility_sigma.upper);
+	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_sigma.testval);
+	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_sigma.guassian_step_sd);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Volatility Parameters");
+	ImGui::InputScalar("time delta", ImGuiDataType_Float, &parameter.m_volatility.dt);
+	ImGui::InputScalar("brownian Motion delta lower bound", ImGuiDataType_Float, &parameter.m_volatility.dw_lower);
+	ImGui::InputScalar("brownian Motion delta upper bound", ImGuiDataType_Float, &parameter.m_volatility.dw_upper);
+	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility.testval);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Number of iterations");
+	ImGui::InputScalar("p1", ImGuiDataType_U32, &parameter.m_MCMCIteration);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Number of iterations after which graphs update");
+	ImGui::InputScalar("p2", ImGuiDataType_U32, &parameter.m_GraphUpdateIteration);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Number of days to use for stock analysis");
+	ImGui::InputScalar("p3", ImGuiDataType_U32, &parameter.m_NumberOfDaysToUse);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Burn In");
+	ImGui::InputScalar("p4", ImGuiDataType_U32, &parameter.m_MCMCIteration);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("Number of discrete intervals to break down continuous spaces");
+	ImGui::InputScalar("p5", ImGuiDataType_U32, &parameter.m_DiscretCountOfContinuiosSpace);
+
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	if (ImGui::Button("Submit")) {
+		this->LoadSixthScreen();
+	}
+	
+	ImGui::End();
+}
+
+void Screen::LoadSixthScreen() {
+	this->screenstate = ScreenState::Sixth;
+}
+
+void Screen::SixthScreenRender() {
+	ImGui::Begin("6th screen");
+	ImGui::Text("Hello I am 6th screen");
 	ImGui::End();
 }
 
@@ -264,6 +334,8 @@ void Screen::Render() {
 			return this->FourthScreenRender();
 		case ScreenState::Fifth:
 			return this->FifthScreenRender();
+		case ScreenState::Sixth:
+			return this->SixthScreenRender();
 		default:
 			std::cout << "Default hit in screen render function. Terminating" << std::endl;
 			std::terminate();

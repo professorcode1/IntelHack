@@ -16,6 +16,9 @@ Application::Application() :screen{
     cl::sycl::device::get_devices(),
     [this](std::string deviceName, int workload) {
         this->deviceNameToWorkload.insert(std::make_pair(deviceName, workload));
+    },
+    [this]()->AlgorithmParameter& {
+        return this->HMC_Wiggins.getParameterReference();
     }
 } {
     glfwSetErrorCallback(glfw_error_callback);

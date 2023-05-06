@@ -8,6 +8,7 @@
 #include <fstream>
 #include "screen/Screen.h"
 #include <CL/sycl.hpp>
+#include "Engine/Algorithm.h"
 
 class Application
 {
@@ -16,6 +17,7 @@ private:
 	Screen screen;
 	std::map<boost::gregorian::date, float> data;
 	std::map<std::string, int> deviceNameToWorkload;
+	Algorithm HMC_Wiggins;
 public:
 	Application();
 	~Application();

@@ -13,6 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <CL/sycl.hpp>
+#include "../Engine/Algorithm.h"
 
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];
@@ -39,7 +40,8 @@ enum class ScreenState {
 	Second,
 	Third,
 	Fourth,
-	Fifth
+	Fifth,
+	Sixth
 };
 class Screen
 {
@@ -59,15 +61,19 @@ private:
 	void FourthScreenRender();
 	void LoadFifthScreen();
 	void FifthScreenRender();
+	void LoadSixthScreen();
+	void SixthScreenRender();
 
 	std::function<void(boost::gregorian::date, float)> m_populate_Data;
 	std::vector<cl::sycl::device> m_AllDevice;
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
+	std::function<AlgorithmParameter& ()> m_parameterReference;
 public:
 	Screen(
 		const std::function<void(boost::gregorian::date, float)> &populate_Data,
 		const std::vector<cl::sycl::device> &AllDevice,
-		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference
+		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
+		const std::function<AlgorithmParameter& ()> &parameterReference
 	);
 	void Render();
 };
