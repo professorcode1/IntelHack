@@ -68,12 +68,15 @@ private:
 	std::vector<cl::sycl::device> m_AllDevice;
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
 	std::function<AlgorithmParameter& ()> m_parameterReference;
+	std::function<void()> m_initialiseAlgorithm;
+	
 public:
 	Screen(
 		const std::function<void(boost::gregorian::date, float)> &populate_Data,
 		const std::vector<cl::sycl::device> &AllDevice,
 		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
-		const std::function<AlgorithmParameter& ()> &parameterReference
+		const std::function<AlgorithmParameter& ()> &parameterReference,
+		const std::function<void()> initialiseAlgorithm
 	);
 	void Render();
 };

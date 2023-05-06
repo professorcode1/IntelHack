@@ -11,13 +11,15 @@ Screen::Screen(
 	const std::function<void(boost::gregorian::date, float)>& populate_Data,
 	const std::vector<cl::sycl::device>& AllDevice,
 	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
-	const std::function<AlgorithmParameter& ()>& parameterReference
+	const std::function<AlgorithmParameter& ()>& parameterReference,
+	const std::function<void()> initialiseAlgorithm
 ) :
     screenstate{ ScreenState::First },
 	m_populate_Data{ populate_Data },
 	m_AllDevice{AllDevice},
 	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference },
-	m_parameterReference{ parameterReference }
+	m_parameterReference{ parameterReference },
+	m_initialiseAlgorithm{ initialiseAlgorithm }
 {
     strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
     strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key");
@@ -268,6 +270,7 @@ void Screen::FifthScreenRender() {
 	ImGui::InputScalar("standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.sd);
 	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_mu.testval);
 	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.guassian_step_sd);
+	ImGui::InputScalar("Buffer range sigma multiplier", ImGuiDataType_U32, &parameter.m_volatility_mu.buffer_range_sigma_multiplier);
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Sigma Parameters");
@@ -313,6 +316,7 @@ void Screen::FifthScreenRender() {
 }
 
 void Screen::LoadSixthScreen() {
+	this->m_initialiseAlgorithm();
 	this->screenstate = ScreenState::Sixth;
 }
 

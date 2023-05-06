@@ -1,10 +1,20 @@
 #pragma once
 #include <stdint.h>
+#include <vector>
+#include <sycl/sycl.hpp>
+#define _USE_MATH_DEFINES
+#include <math.h>
+#include <map>
+#include <CL/sycl.hpp>
+
+
 typedef struct UniformParameters {
 	float lower;
 	float upper;
 	float testval;
 	float guassian_step_sd;
+
+	std::pair<std::vector<float>, float> generateBuffer(uint32_t DiscretCountOfContinuiosSpace);
 } UniformParameters;
 
 typedef struct NormalParameter {
@@ -12,6 +22,10 @@ typedef struct NormalParameter {
 	float sd;
 	float testval;
 	float guassian_step_sd;
+	uint32_t buffer_range_sigma_multiplier;
+
+	float evaluate(float x);
+	std::pair<std::vector<float>, float> generateBuffer(uint32_t DiscretCountOfContinuiosSpace);
 } NormalParameter;
 
 typedef struct EulerMaruyama {
@@ -31,18 +45,44 @@ typedef struct AlgorithmParameter {
 	uint32_t m_NumberOfDaysToUse;
 	uint32_t m_BurnIn;
 	uint32_t m_DiscretCountOfContinuiosSpace;
+	uint32_t m_leapfrog;
+	float m_epsilon;
 } AlgorithmParameter;
+
+typedef struct DiscreteProbabilityDistribution {
+	std::vector<float> data;
+	float min;
+	float max;
+	float sum;
+} DiscreteProbabilityDistribution;
+
+typedef struct AlgorithmResponse {
+	DiscreteProbabilityDistribution theta;
+	DiscreteProbabilityDistribution mu;
+	DiscreteProbabilityDistribution sigma;
+} AlgorithmResponse;
+
+typedef struct AlgorithmDeviceData {
+	float m_workload_fraction;
+} AlgorithmDeviceData;
 
 class Algorithm
 {
 private:
-	AlgorithmParameter parameter;
+	const AlgorithmParameter m_parameter;
+	AlgorithmResponse response;
+	int iteration_count;
+	std::vector<float> m_stocksdata;
+	std::map<sycl::queue, AlgorithmDeviceData> m_QueuesAndData;
 
 public:
-	Algorithm();
-	AlgorithmParameter& getParameterReference() {
-		return this->parameter;
-	}
-	friend class Screen;
+	Algorithm(
+		const AlgorithmParameter &parameter,
+		const std::vector<float> &stocksdata,
+		const std::map<std::string, int> &deviceNameToWorkload
+		);
+
+	std::optional<AlgorithmResponse> next();
+
 };
 

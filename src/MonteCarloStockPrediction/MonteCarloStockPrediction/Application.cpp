@@ -12,13 +12,25 @@ static inline bool file_exists(const std::string& name) {
 Application::Application() :screen{ 
     [this](boost::gregorian::date date, float value) {
         this->data.insert(std::make_pair(date, value));
+        //std::cout << boost::gregorian::to_simple_string(this->data.begin()->first) << std::endl;;
     },
     cl::sycl::device::get_devices(),
     [this](std::string deviceName, int workload) {
         this->deviceNameToWorkload.insert(std::make_pair(deviceName, workload));
     },
     [this]()->AlgorithmParameter& {
-        return this->HMC_Wiggins.getParameterReference();
+        return this->parameter;
+    },
+    [this]() {
+        std::vector<float> StocksData;
+        int starting_date_offset = max(0, this->data.size() - this->parameter.m_NumberOfDaysToUse);
+        auto dataIterator = this->data.begin();
+        std::advance(dataIterator, starting_date_offset);
+        while (dataIterator != this->data.end()) {
+            StocksData.push_back(dataIterator->second);
+            dataIterator++;
+        }
+        this->HMC_Wiggins = new Algorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
     }
 } {
     glfwSetErrorCallback(glfw_error_callback);
@@ -83,8 +95,38 @@ Application::Application() :screen{
 
         ImFont* font = io.Fonts->AddFontFromFileTTF(good_font_file_location.c_str(), 20.0f);
     }
-    // Our state
+    
 
+    {
+        this->parameter.m_MCMCIteration = 3000;
+        this->parameter.m_GraphUpdateIteration = 100;
+        this->parameter.m_NumberOfDaysToUse = 365;
+        this->parameter.m_BurnIn = 1000;
+        this->parameter.m_DiscretCountOfContinuiosSpace = 100;
+        this->parameter.m_leapfrog = 12;
+        this->parameter.m_epsilon = 0.19;
+
+        this->parameter.m_volatility_theta.lower = 0.0;
+        this->parameter.m_volatility_theta.upper = 1.0;
+        this->parameter.m_volatility_theta.testval = 0.5;
+        this->parameter.m_volatility_theta.guassian_step_sd = 1.0f / (4.0 * 6.0);
+
+        this->parameter.m_volatility_mu.mean = -5.0f;
+        this->parameter.m_volatility_mu.sd = 0.1f;
+        this->parameter.m_volatility_mu.testval = -5.0f;
+        this->parameter.m_volatility_mu.guassian_step_sd = 0.1f / 4.0f;
+        this->parameter.m_volatility_mu.buffer_range_sigma_multiplier = 4;
+
+        this->parameter.m_volatility_sigma.lower = 0.001f;
+        this->parameter.m_volatility_sigma.upper = 0.2f;
+        this->parameter.m_volatility_sigma.testval = 0.05f;
+        this->parameter.m_volatility_sigma.guassian_step_sd = (0.02 - 0.001) / (4.0 * 6.0);
+
+        this->parameter.m_volatility.dt = 1.0f;
+        this->parameter.m_volatility.testval = 1.0f;
+        this->parameter.m_volatility.dw_lower = 0.0f;
+        this->parameter.m_volatility.dw_upper = 0.1f;
+    }
 }
 
 void Application::main_loop() {

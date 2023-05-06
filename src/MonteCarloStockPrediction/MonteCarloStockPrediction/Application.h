@@ -17,7 +17,8 @@ private:
 	Screen screen;
 	std::map<boost::gregorian::date, float> data;
 	std::map<std::string, int> deviceNameToWorkload;
-	Algorithm HMC_Wiggins;
+	AlgorithmParameter parameter;
+	Algorithm *HMC_Wiggins;
 public:
 	Application();
 	~Application();
