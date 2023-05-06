@@ -65,7 +65,7 @@ private:
 	void SixthScreenRender();
 
 	std::function<void(boost::gregorian::date, float)> m_populate_Data;
-	std::vector<cl::sycl::device> m_AllDevice;
+	const std::vector<cl::sycl::device> m_AllDevice;
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
 	std::function<AlgorithmParameter& ()> m_parameterReference;
 	std::function<void()> m_initialiseAlgorithm;

@@ -306,6 +306,14 @@ void Screen::FifthScreenRender() {
 	ImGui::Text("Number of discrete intervals to break down continuous spaces");
 	ImGui::InputScalar("p5", ImGuiDataType_U32, &parameter.m_DiscretCountOfContinuiosSpace);
 
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("HMC Leapfrog");
+	ImGui::InputScalar("p6", ImGuiDataType_U32, &parameter.m_leapfrog);
+
+	ImGui::Dummy(ImVec2(15.0, 15.0));
+	ImGui::Text("HMC Epsilon");
+	ImGui::InputScalar("p7", ImGuiDataType_Float, &parameter.m_epsilon);
+
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	if (ImGui::Button("Submit")) {
