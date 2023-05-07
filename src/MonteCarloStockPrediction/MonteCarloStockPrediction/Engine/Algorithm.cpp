@@ -69,6 +69,12 @@ WigginsAlgorithm::WigginsAlgorithm(
 	for (auto QueuesAndDataMemmber : m_QueuesAndData) {
 		QueuesAndDataMemmber.second.m_workload_fraction /= workloadTotal;
 	}
+	this->start = {
+		this->m_parameter.m_volatility_theta.testval,
+		this->m_parameter.m_volatility_mu.testval,
+		this->m_parameter.m_volatility_sigma.testval
+	};
+		this->BurnIn();
 }	
 
 static int sycl_strogest_cpu_selector(const sycl::device& d) {
@@ -76,7 +82,7 @@ static int sycl_strogest_cpu_selector(const sycl::device& d) {
 }
 
 
-float WigginsAlgorithm::potential_energy_U(
+float potential_energy_U(
 	const ProbabilityDomain domain,
 	int timeSeriesLength,
 	oneapi::dpl::uniform_real_distribution<float> &dW,
@@ -101,7 +107,7 @@ float WigginsAlgorithm::potential_energy_U(
 	return -1 * U;
 }
 
-float WigginsAlgorithm::potential_energy_U(
+float potential_energy_U(
 	const ProbabilityDomain domain,
 	ProbabilityDomain &differential,
 	int timeSeriesLength,
@@ -139,7 +145,7 @@ float WigginsAlgorithm::potential_energy_U(
 	return -1 * U;
 }
 
-ProbabilityDomain WigginsAlgorithm::potential_energy_gradient(
+ProbabilityDomain potential_energy_gradient(
 	const ProbabilityDomain domain,
 	int tsLength,
 	oneapi::dpl::uniform_real_distribution<float>& dW,
@@ -147,14 +153,14 @@ ProbabilityDomain WigginsAlgorithm::potential_energy_gradient(
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 ) {
 	ProbabilityDomain gradient;
-	this->potential_energy_U(
+	potential_energy_U(
 		domain, gradient, tsLength, dW, engine, returns
 	);
 	return gradient;
 }
 
 
-bool WigginsAlgorithm::hmc_sample(
+bool hmc_sample(
 	float epsilon,
 	int leapfrog,
 	const ProbabilityDomain current_q,
@@ -171,16 +177,18 @@ bool WigginsAlgorithm::hmc_sample(
 	ProbabilityDomain q = current_q;
 	ProbabilityDomain p{ theta_normal(engine) , mu_normal(engine), sigma_normal(engine) };
 	ProbabilityDomain current_p = p;
-	p = p - (epsilon * this->potential_energy_gradient(q, tsLength, dW, engine, returns) * 0.5);
+	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, dW, engine, returns) * 0.5);
 	for (int i = 0; i < leapfrog - 1; i++) {
 		q = q + epsilon * p;
-		p = p - (epsilon * this->potential_energy_gradient(q, tsLength, dW, engine, returns));
+		p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, dW, engine, returns));
 	}
-	p = p - (epsilon * this->potential_energy_gradient(q, tsLength, dW, engine, returns) * 2.0f);
+	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, dW, engine, returns) * 2.0f);
 	float current_U = potential_energy_U(current_q, tsLength, dW, engine, returns);
-	float current_K = (current_p * current_p * 0.5).sum();
+	ProbabilityDomain current_K_Domain = current_p * current_p * 0.5;
+	float current_K = current_K_Domain.mu + current_K_Domain.sigma + current_K_Domain.theta;
+	ProbabilityDomain propsed_K_domain = p * p * 0.5;
 	float proposed_U = potential_energy_U(q, tsLength, dW, engine, returns);
-	float proposed_K = (p * p * 0.5).sum();
+	float proposed_K = propsed_K_domain.mu + propsed_K_domain.sigma + propsed_K_domain.theta;
 	float energy_change = current_U - proposed_U + current_K - proposed_K;
 	if (zero_one_uniform(engine) < exp(energy_change)) {
 		new_domain = q;
@@ -198,10 +206,16 @@ void WigginsAlgorithm::BurnIn() {
 	queue q(sycl_strogest_cpu_selector);
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
 	buffer<float, 1> result(range<1>{3});
+	host_accessor resultHostAccessor(result, read_write);
+	resultHostAccessor[0] = this->start.theta;
+	resultHostAccessor[1] = this->start.mu;
+	resultHostAccessor[2] = this->start.sigma;
 	q.submit([&, this](handler &h) {
 		const AlgorithmParameter parameter = this->m_parameter;
 		accessor returnsAccessor(m_returns, h, read_only);
+		accessor resultAccessor(result, h, write_only);
 		int tsLength = m_returns.size();
+		ProbabilityDomain start = this->start;
 		h.single_task([=]() {
 			oneapi::dpl::minstd_rand engine(seed, 0);
 			oneapi::dpl::normal_distribution<float> theta_normal(0.0f, parameter.m_volatility_theta.guassian_step_sd);
@@ -209,24 +223,37 @@ void WigginsAlgorithm::BurnIn() {
 			oneapi::dpl::normal_distribution<float> sigma_normal(0.0f, parameter.m_volatility_sigma.guassian_step_sd);
 			oneapi::dpl::uniform_real_distribution<float> zero_one_uniform(0.0f, 1.0f);
 			oneapi::dpl::uniform_real_distribution<float> dW(parameter.m_volatility.dw_lower, parameter.m_volatility.dw_upper);
-			ProbabilityDomain startingProbabilityDomain {
-				parameter.m_volatility_theta.testval,
-				parameter.m_volatility_mu.testval,
-				parameter.m_volatility_sigma.testval
+			ProbabilityDomain oldDomain{
+				resultAccessor[0],
+				resultAccessor[1],
+				resultAccessor[2]
 			}, nextDomain;
-			hmc_sample(
-				parameter.m_epsilon, parameter.m_leapfrog,
-				startingProbabilityDomain,
-				nextDomain,
-				theta_normal,
-				mu_normal,
-				sigma_normal,
-				zero_one_uniform,
-				tsLength,
-				dW,
-				engine,
-				returnsAccessor
-			);
+			for (int i = 0; i < parameter.m_BurnIn; i++) {
+				hmc_sample(
+					parameter.m_epsilon, parameter.m_leapfrog,
+					oldDomain,
+					nextDomain,
+					theta_normal,
+					mu_normal,
+					sigma_normal,
+					zero_one_uniform,
+					tsLength,
+					dW,
+					engine,
+					returnsAccessor
+				);
+				oldDomain = nextDomain;
+			}
+			resultAccessor[0] = nextDomain.theta;
+			resultAccessor[1] = nextDomain.mu;
+			resultAccessor[2] = nextDomain.sigma;
 		});
 	});
+	this->start.theta = resultHostAccessor[0];
+	this->start.mu = resultHostAccessor[1];
+	this->start.sigma = resultHostAccessor[2];
+	std::cout << "Burn In Done, result " << std::endl;
+	std::cout << this->start.theta << std::endl;
+	std::cout << this->start.mu << std::endl;
+	std::cout << this->start.sigma << std::endl;
 }

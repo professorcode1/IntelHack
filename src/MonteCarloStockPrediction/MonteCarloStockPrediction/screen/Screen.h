@@ -3,17 +3,17 @@
 #include "../vendor/iamgui/imgui_impl_glfw.h"
 #include "../vendor/iamgui/imgui_impl_opengl3.h"
 #include "../vendor/iamgui/imspinner.h"
+#include "Utils.h"
+#include "../Engine/types.h"
 #include <string>
 #include <map>
 #include <iostream>
 #include <fstream>
-#include "Utils.h"
 #include <cpr/cpr.h>
 #include <future>
 #include <nlohmann/json.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <CL/sycl.hpp>
-#include "../Engine/Algorithm.h"
 
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];

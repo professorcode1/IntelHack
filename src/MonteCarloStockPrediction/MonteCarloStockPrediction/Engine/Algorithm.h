@@ -21,6 +21,19 @@ private:
 	int iteration_count;
 	cl::sycl::buffer<float,1> m_returns;
 	std::unordered_map<sycl::queue, AlgorithmDeviceData> m_QueuesAndData;
+	ProbabilityDomain start;
+	void BurnIn();
+
+public:
+	WigginsAlgorithm(
+		const AlgorithmParameter &parameter,
+		const std::vector<float> &stocksdata,
+		const std::map<std::string, int> &deviceNameToWorkload
+		);
+
+	std::optional<AlgorithmResponse> next();
+};
+
 	float potential_energy_U(
 		const ProbabilityDomain domain,
 		int timeSeriesLength,
@@ -61,16 +74,4 @@ private:
 		const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 	);
 
-	void BurnIn();
-
-public:
-	WigginsAlgorithm(
-		const AlgorithmParameter &parameter,
-		const std::vector<float> &stocksdata,
-		const std::map<std::string, int> &deviceNameToWorkload
-		);
-
-	std::optional<AlgorithmResponse> next();
-
-};
 

@@ -1,15 +1,15 @@
 #pragma once
+#include<CL/sycl.hpp>
 
-typedef struct ProbabilityDomain {
+extern SYCL_EXTERNAL struct ProbabilityDomain {
 	float theta;
 	float mu;
 	float sigma;
-
-	ProbabilityDomain operator+(const ProbabilityDomain& other);
-	float sum();
-} ProbabilityDomain;
-
-ProbabilityDomain operator*(const ProbabilityDomain lhs, const float rhs);
-ProbabilityDomain operator*(const float lhs, const ProbabilityDomain& rhs);
-ProbabilityDomain operator-(const ProbabilityDomain lhs, const ProbabilityDomain rhs);
-ProbabilityDomain operator*(const ProbabilityDomain lhs, const ProbabilityDomain rhs);
+} ;
+typedef struct ProbabilityDomain ProbabilityDomain;
+//extern SYCL_EXTERNAL float sum(ProbabilityDomain domain);
+extern SYCL_EXTERNAL ProbabilityDomain operator*(const ProbabilityDomain &lhs, const float rhs);
+extern SYCL_EXTERNAL ProbabilityDomain operator*(const float lhs, const ProbabilityDomain& rhs);
+extern SYCL_EXTERNAL ProbabilityDomain operator-(const ProbabilityDomain &lhs, const ProbabilityDomain &rhs);
+extern SYCL_EXTERNAL ProbabilityDomain operator*(const ProbabilityDomain& lhs, const ProbabilityDomain& rhs);
+extern SYCL_EXTERNAL ProbabilityDomain operator+(const ProbabilityDomain &lhs, const ProbabilityDomain &rhs);

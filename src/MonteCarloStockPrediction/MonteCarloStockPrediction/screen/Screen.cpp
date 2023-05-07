@@ -300,7 +300,7 @@ void Screen::FifthScreenRender() {
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Burn In");
-	ImGui::InputScalar("p4", ImGuiDataType_U32, &parameter.m_MCMCIteration);
+	ImGui::InputScalar("p4", ImGuiDataType_U32, &parameter.m_BurnIn);
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Number of discrete intervals to break down continuous spaces");

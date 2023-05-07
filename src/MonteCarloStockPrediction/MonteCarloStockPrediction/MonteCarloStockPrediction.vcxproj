@@ -124,6 +124,9 @@
     <ClInclude Include="vendor\iamgui\imstb_textedit.h" />
     <ClInclude Include="vendor\iamgui\imstb_truetype.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="cpp.hint" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
