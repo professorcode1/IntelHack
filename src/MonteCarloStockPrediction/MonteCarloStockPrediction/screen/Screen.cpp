@@ -86,8 +86,8 @@ void Screen::FirstScreenRender() {
 
     ImGui::End();
 
-	if (show_demo_window)
-		ImGui::ShowDemoWindow(&show_demo_window);
+	//if (show_demo_window)
+	//	ImGui::ShowDemoWindow(&show_demo_window);
 }
 
 void Screen::LoadSecondScreen() {
@@ -241,8 +241,13 @@ void Screen::FourthScreenRender() {
 	ImGui::Begin("Device Workload");
 	const int deviceCount = this->m_AllDevice.size();
 	ImGui::Dummy(ImVec2(15.0, 15.0));
+	std::set<std::string> printed;
 	for (int deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
 		std::string DeviceName = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::name>();
+		if (printed.find(DeviceName) != printed.end()) {
+			continue;
+		}
+		printed.insert(DeviceName);
 		ImGui::Text(DeviceName.c_str());
 		const int max_compute_units = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::max_compute_units>();
 		ImGui::Text("Compute Units :: %d", max_compute_units);
@@ -347,8 +352,18 @@ void Screen::LoadSixthScreen() {
 
 void Screen::SixthScreenRender() {
 	ImGui::Begin("6th screen");
-	ImGui::Text("Hello I am 6th screen");
+	std::cout << "Calling m_algorithmCompletionPercent" << std::endl;
+	float res = this->m_algorithmCompletionPercent();
+	std::cout << res << std::endl;
+	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
 	ImGui::End();
+	std::cout << "Calling m_algorithmCompleted" << std::endl;
+	if (this->m_algorithmCompleted()) {
+		std::cout << "Setting State to secents" << std::endl;
+		this->screenstate = ScreenState::Seventh;
+	}
+	std::cout << "calling m_algorithmIterate" << std::endl;
+	this->m_algorithmIterate();
 }
 
 void Screen::DrawBackgrounImage() {
@@ -375,6 +390,6 @@ void Screen::Render() {
 			return this->SixthScreenRender();
 		default:
 			std::cout << "Default hit in screen render function. Terminating" << std::endl;
-			std::terminate();
+			throw std::runtime_error("Default hit in screen render function. Terminating");
 	}
 }

@@ -10,7 +10,7 @@
 #include <chrono>
 #include "ProbabilityDomain.h"
 #include "types.h"
-
+#include <algorithm>
 
 class WigginsAlgorithm
 {

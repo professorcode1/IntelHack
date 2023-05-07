@@ -42,7 +42,8 @@ enum class ScreenState {
 	Third,
 	Fourth,
 	Fifth,
-	Sixth
+	Sixth,
+	Seventh
 };
 class Screen
 {

@@ -62,34 +62,46 @@ WigginsAlgorithm::WigginsAlgorithm(
 	this->iteration_count = 0;
 	int workloadTotal = 0;
 	std::vector<cl::sycl::device> devices = cl::sycl::device::get_devices();
-
+	std::set<std::string> devices_that_occured;
+	
 	for (int deviceIndex = 0; deviceIndex < devices.size(); deviceIndex++) {
 		std::string deviceName = devices[deviceIndex].get_info<cl::sycl::info::device::name>();
+		if (devices_that_occured.find(deviceName) != devices_that_occured.end()) {
+			continue;
+		}
+		else {
+			devices_that_occured.insert(deviceName);
+		}
 		const int workload = deviceNameToWorkload.at(deviceName);
 		workloadTotal += workload;
 	}
 	if (workloadTotal == 0) {
 		throw std::runtime_error("Zero workload selected on all devices");
 	}
+	devices_that_occured.clear();
 	for (int deviceIndex = 0; deviceIndex < devices.size(); deviceIndex++) {
 		std::string deviceName = devices[deviceIndex].get_info<cl::sycl::info::device::name>();
+		if (devices_that_occured.find(deviceName) != devices_that_occured.end()) {
+			continue;
+		}
+		else {
+			devices_that_occured.insert(deviceName);
+		}
 		const int workload = deviceNameToWorkload.at(deviceName);
 		if (workload <= 0)
 			continue;
 		
 		cl::sycl::queue q(devices[deviceIndex]);
 		int continuousDiscreteQuanta = this->m_parameter.m_DiscretCountOfContinuiosSpace;
+		std::cout << deviceName << std::endl;
+		std::cout << "Workload " << workload << " total " << workloadTotal << std::endl;
 		AlgorithmDeviceData algoDeviceData(
 			m_response,
 			(float)workload / (float)workloadTotal
 		);
-		algoDeviceData.m_workload_fraction = workload;
 		m_QueuesAndData.push_back(std::make_pair(q, algoDeviceData));
 	}
 
-	for (auto QueuesAndDataMemmber : m_QueuesAndData) {
-		QueuesAndDataMemmber.second.m_workload_fraction /= workloadTotal;
-	}
 	this->start = {
 		this->m_parameter.m_volatility_theta.testval,
 		this->m_parameter.m_volatility_mu.testval,
@@ -317,24 +329,39 @@ uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float v
 	return res;
 }
 
-void sort_buffer(cl::sycl::handler& h, cl::sycl::accessor<uint32_t, 1,cl::sycl::access_mode::write> &buffer) {
-	int buffer_size = buffer.get_size();
-	for (int sort_step = 0; sort_step <= buffer_size; sort_step++) {
-		//<= to avoid risk. 
-		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
-			int i = 1 + thread_id * 2;
-			if (buffer[i] > buffer[i + 1]) {
-				std::swap(buffer[i], buffer[i + 1]);
-			}
-		});
-		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
-			int i = thread_id * 2;
-			if (buffer[i] > buffer[i + 1]) {
-				std::swap(buffer[i], buffer[i + 1]);
-			}
-		});
-	}
+void sort_buffer(cl::sycl::queue& q, cl::sycl::buffer<uint32_t, 1> &buffer) {
+	//int buffer_size = buffer.size();
+	//cl::sycl::event return_event;
+	//for (int sort_step = 0; sort_step <= buffer_size; sort_step++) {
+	//	//<= to avoid risk. 
+	//	return_event = q.submit([&](cl::sycl::handler& h) {
+	//		cl::sycl::accessor bufferAccessor(buffer, cl::sycl::read_write);
+	//		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
+	//			int i = 1 + thread_id * 2;
+	//			if (bufferAccessor[i] > bufferAccessor[i + 1]) {
+	//				std::swap(bufferAccessor[i], bufferAccessor[i + 1]);
+	//			}
+	//		});
+	//	});
+	//	return_event = q.submit([&](cl::sycl::handler& h) {
+	//		cl::sycl::accessor bufferAccessor(buffer, cl::sycl::read_write);
+	//		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
+	//			int i = thread_id * 2;
+	//			if (bufferAccessor[i] > bufferAccessor[i + 1]) {
+	//				std::swap(bufferAccessor[i], bufferAccessor[i + 1]);
+	//			}
+	//		});
+	//	});
+	//}
+	//return return_event;
+	//I cannot for the life of me figure out why the above implementaion fails. So I just giving up now
+	//explictly sorting on the cpu
+	using cl::sycl;
+	host_accessor resultHostAccessor(buffer, read_only);
+
 }
+
+
 void fill_buffer(cl::sycl::handler& h, cl::sycl::buffer<uint32_t, 1>& buffer, uint32_t fillValue) {
 	using namespace cl::sycl;
 
@@ -343,6 +370,8 @@ void fill_buffer(cl::sycl::handler& h, cl::sycl::buffer<uint32_t, 1>& buffer, ui
 		Accessor[thread_id] = fillValue;
 	});
 }
+
+
 cl::sycl::event exectue_wiggins_algorithm_on_device(
 	cl::sycl::queue &q, const AlgorithmDeviceData &device_data,
 	const AlgorithmParameter &parameter, const ProbabilityDomain &start,
@@ -359,13 +388,12 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 
 	int tsLength = returns.size();
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
-	return q.submit([&](handler& h) {
+	//run the MNC Algorithm, write result to theta mu sigma buffer 
+	q.submit([&](handler& h) {
 		accessor thetaAccessor(theta, h, write_only);
 		accessor muAccessor(mu, h, write_only);
 		accessor sigmaAccessor(sigma, h, write_only);
 		accessor returnsAccessor(returns, h, read_only);
-		accessor probabilityDomainAccessor(probabilityDomainSum, h, write_only, no_init);
-
 		h.parallel_for(range<1>(workItems), [=](id<1> thread_id) {
 			oneapi::dpl::minstd_rand engine(seed, thread_id);
 			oneapi::dpl::normal_distribution<float> theta_normal(0.0f, parameter.m_volatility_theta.guassian_step_sd);
@@ -409,145 +437,168 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 				nextDomain.sigma
 			); ;
 		});
-		sort_buffer(h, thetaAccessor);
-		sort_buffer(h, muAccessor);
-		sort_buffer(h, sigmaAccessor);
-		fill_buffer(h, delta_theta, 0);
-		fill_buffer(h, delta_mu, 0);
-		fill_buffer(h, delta_sigma, 0);
-		accessor delta_thetaAccessor(delta_theta, h, write_only);
-		accessor delta_muAccessor(delta_mu, h, write_only);
-		accessor delta_sigmaAccessor(delta_sigma, h, write_only);
-
-		const int maximum_binary_search_iterations = ceil(log2(workItems)) + 1;//+1 to avoid risk
-		//better a little slow than 5 hours debugging
-		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-			int low = 0, high = workItems - 1, first = -1 , last = -1;
-			for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (thetaAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (thetaAccessor[mid] < thread_id)
-					low = mid + 1;
-				else {
-					first = mid;
-					high = mid - 1;
-				}
-			}
-		
-			low = 0, high = workItems - 1;
-			for(int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (thetaAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (thetaAccessor[mid] < thread_id)
-					low = mid + 1;
-
-				else {
-					last = mid;
-					low = mid + 1;
-				}
-			}
-			
-			if (first != -1) {
-				delta_thetaAccessor[thread_id] = last - first + 1;
-			}
-			
-		});
-
-		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-			int low = 0, high = workItems - 1, first = -1, last = -1;
-			for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (muAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (muAccessor[mid] < thread_id)
-					low = mid + 1;
-				else {
-					first = mid;
-					high = mid - 1;
-				}
-			}
-
-			low = 0, high = workItems - 1;
-			for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (muAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (muAccessor[mid] < thread_id)
-					low = mid + 1;
-
-				else {
-					last = mid;
-					low = mid + 1;
-				}
-			}
-
-			if (first != -1) {
-				delta_muAccessor[thread_id] = last - first + 1;
-			}
-
-		});
-
-		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-			int low = 0, high = workItems - 1, first = -1, last = -1;
-			for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (sigmaAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (sigmaAccessor[mid] < thread_id)
-					low = mid + 1;
-				else {
-					first = mid;
-					high = mid - 1;
-				}
-			}
-
-			low = 0, high = workItems - 1;
-			for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-				int mid = (low + high) / 2;
-
-				if (sigmaAccessor[mid] > thread_id)
-					high = mid - 1;
-				else if (sigmaAccessor[mid] < thread_id)
-					low = mid + 1;
-
-				else {
-					last = mid;
-					low = mid + 1;
-				}
-			}
-
-			if (first != -1) {
-				delta_sigmaAccessor[thread_id] = last - first + 1;
-			}
-			});
-
-		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-			auto theta = sycl::ext::oneapi::atomic_ref<
-				uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-				sycl::ext::oneapi::memory_scope::device,
-				sycl::access::address_space::global_space>(probabilityDomainAccessor[0]);
-			theta.fetch_add(delta_thetaAccessor[thread_id]);
-
-			auto mu = sycl::ext::oneapi::atomic_ref<
-				uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-				sycl::ext::oneapi::memory_scope::device,
-				sycl::access::address_space::global_space>(probabilityDomainAccessor[1]);
-			mu.fetch_add(delta_muAccessor[thread_id]);
-
-			auto sigma = sycl::ext::oneapi::atomic_ref<
-				uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-				sycl::ext::oneapi::memory_scope::device,
-				sycl::access::address_space::global_space>(probabilityDomainAccessor[2]);
-			sigma.fetch_add(delta_sigmaAccessor[thread_id]);
-		});
 	});
+	//sort the theta 
+	auto e1 = sort_buffer(q, theta);
+	e1.wait();
+	//sort the mu
+	auto e2 = sort_buffer(q, mu);
+	e2.wait();
+	//sort the sigma
+	auto e3 = sort_buffer(q, sigma);
+	e3.wait();
+	return e3;
+	////fill the delta theta, delta mu, delta sigma buffers with 0
+	//q.submit([&](handler& h) {
+	//	fill_buffer(h, delta_theta, 0);
+	//	fill_buffer(h, delta_mu, 0);
+	//	fill_buffer(h, delta_sigma, 0);
+	//});
+	////read the thea, mu sigma buffers and fill the delta theta, delta mu, delta sigma buffers
+	//q.submit([&](handler& h) {
+	//	accessor delta_thetaAccessor(delta_theta, h, write_only);
+	//	accessor delta_muAccessor(delta_mu, h, write_only);
+	//	accessor delta_sigmaAccessor(delta_sigma, h, write_only);
+	//	accessor thetaAccessor(theta, h, read_only);
+	//	accessor muAccessor(mu, h, read_only);
+	//	accessor sigmaAccessor(sigma, h, read_only);
+	//	const int maximum_binary_search_iterations = ceil(log2(workItems)) + 1;//+1 to avoid risk
+	//	//better a little slow than 5 hours debugging
+	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
+	//		int low = 0, high = workItems - 1, first = -1 , last = -1;
+	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (thetaAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (thetaAccessor[mid] < thread_id)
+	//				low = mid + 1;
+	//			else {
+	//				first = mid;
+	//				high = mid - 1;
+	//			}
+	//		}
+	//	
+	//		low = 0, high = workItems - 1;
+	//		for(int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (thetaAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (thetaAccessor[mid] < thread_id)
+	//				low = mid + 1;
+
+	//			else {
+	//				last = mid;
+	//				low = mid + 1;
+	//			}
+	//		}
+	//		
+	//		if (first != -1) {
+	//			delta_thetaAccessor[thread_id] = last - first + 1;
+	//		}
+	//		
+	//	});
+
+	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
+	//		int low = 0, high = workItems - 1, first = -1, last = -1;
+	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (muAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (muAccessor[mid] < thread_id)
+	//				low = mid + 1;
+	//			else {
+	//				first = mid;
+	//				high = mid - 1;
+	//			}
+	//		}
+
+	//		low = 0, high = workItems - 1;
+	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (muAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (muAccessor[mid] < thread_id)
+	//				low = mid + 1;
+
+	//			else {
+	//				last = mid;
+	//				low = mid + 1;
+	//			}
+	//		}
+
+	//		if (first != -1) {
+	//			delta_muAccessor[thread_id] = last - first + 1;
+	//		}
+
+	//	});
+
+	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
+	//		int low = 0, high = workItems - 1, first = -1, last = -1;
+	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (sigmaAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (sigmaAccessor[mid] < thread_id)
+	//				low = mid + 1;
+	//			else {
+	//				first = mid;
+	//				high = mid - 1;
+	//			}
+	//		}
+
+	//		low = 0, high = workItems - 1;
+	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
+	//			int mid = (low + high) / 2;
+
+	//			if (sigmaAccessor[mid] > thread_id)
+	//				high = mid - 1;
+	//			else if (sigmaAccessor[mid] < thread_id)
+	//				low = mid + 1;
+
+	//			else {
+	//				last = mid;
+	//				low = mid + 1;
+	//			}
+	//		}
+
+	//		if (first != -1) {
+	//			delta_sigmaAccessor[thread_id] = last - first + 1;
+	//		}
+	//		});
+
+	//});
+	////sum the delta theta, delta mu, delta sigma, write to probabilityDomainSum
+	//return q.submit([&](handler& h) {
+	//	accessor probabilityDomainAccessor(probabilityDomainSum, h, write_only, no_init);
+	//	accessor delta_thetaAccessor(delta_theta, h, read_only);
+	//	accessor delta_muAccessor(delta_mu, h, read_only);
+	//	accessor delta_sigmaAccessor(delta_sigma, h, read_only);
+
+	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
+	//		auto theta = sycl::ext::oneapi::atomic_ref<
+	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
+	//			sycl::ext::oneapi::memory_scope::device,
+	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[0]);
+	//		theta.fetch_add(delta_thetaAccessor[thread_id]);
+
+	//		auto mu = sycl::ext::oneapi::atomic_ref<
+	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
+	//			sycl::ext::oneapi::memory_scope::device,
+	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[1]);
+	//		mu.fetch_add(delta_muAccessor[thread_id]);
+
+	//		auto sigma = sycl::ext::oneapi::atomic_ref<
+	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
+	//			sycl::ext::oneapi::memory_scope::device,
+	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[2]);
+	//		sigma.fetch_add(delta_sigmaAccessor[thread_id]);
+	//		});
+	//});
 }
 
 
@@ -574,8 +625,9 @@ void WigginsAlgorithm::iterate() {
 			)
 		);
 	}
-
 	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
-		events[deviceIndex].wait();
+		host_accessor resultHostAccessor(thetaHists[deviceIndex], read_only)
+		;
 	}
+	this->iteration_count++;
 }

@@ -50,7 +50,7 @@ Application::Application() :screen{
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
         std::cout << "glfwInit failed. Terminating program" << std::endl;
-        std::terminate();
+        throw std::runtime_error("glfwInit failed. Terminating");
     }
 
     const char* glsl_version = "#version 130";
@@ -67,7 +67,7 @@ Application::Application() :screen{
     if (this->window == nullptr)
     {
         std::cout << "window initialisation faled. Terminating program" << std::endl;
-        std::terminate();
+        throw std::runtime_error("window initialisation faled");
     }
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable vsync

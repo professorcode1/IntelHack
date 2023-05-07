@@ -80,7 +80,7 @@ typedef struct AlgorithmResponse {
 } AlgorithmResponse;
 
 typedef struct AlgorithmDeviceData {
-	float m_workload_fraction;
+	const float m_workload_fraction;
 	DiscreteProbabilityDistribution_device theta;
 	DiscreteProbabilityDistribution_device mu;
 	DiscreteProbabilityDistribution_device sigma;
