@@ -93,6 +93,7 @@
     <ClCompile Include="MonteCarloStockPrediction.cpp" />
     <ClCompile Include="Engine\SYCLComputer.cpp" />
     <ClCompile Include="Engine\Utilities.cpp" />
+    <ClCompile Include="Engine\ProbabilityDomain.cpp" />
     <ClCompile Include="screen\Screen.cpp" />
     <ClCompile Include="screen\Utils.cpp" />
     <ClCompile Include="vendor\iamgui\imgui.cpp" />
@@ -106,8 +107,10 @@
   <ItemGroup>
     <ClInclude Include="Engine\Algorithm.h" />
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Engine\types.h" />
     <ClInclude Include="Engine\Utilities.h" />
     <ClInclude Include="Engine\SYCLComputer.h" />
+    <ClInclude Include="Engine\ProbabilityDomain.h" />
     <ClInclude Include="screen\Utils.h" />
     <ClInclude Include="screen\Screen.h" />
     <ClInclude Include="vendor\iamgui\imconfig.h" />

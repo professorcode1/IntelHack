@@ -30,7 +30,7 @@ Application::Application() :screen{
             StocksData.push_back(dataIterator->second);
             dataIterator++;
         }
-        this->HMC_Wiggins = new Algorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
+        this->HMC_Wiggins = new WigginsAlgorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
     }
 } {
     glfwSetErrorCallback(glfw_error_callback);
@@ -90,10 +90,11 @@ Application::Application() :screen{
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
     //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
     //IM_ASSERT(font != nullptr);
-    const std::string good_font_file_location = "C:\\Users\\raghk\\Documents\\IntelHack\\src\\MonteCarloStockPrediction\\MonteCarloStockPrediction\\assets\\Roboto-Medium.ttf";
-    if(file_exists(good_font_file_location)) {
-
-        ImFont* font = io.Fonts->AddFontFromFileTTF(good_font_file_location.c_str(), 20.0f);
+    std::filesystem::path goodFontFileLocationObject = 
+        std::filesystem::current_path() / "assets" / "Roboto-Medium.ttf";
+    std::string fileLocation = goodFontFileLocationObject.string();
+    if(file_exists(fileLocation)) {
+        ImFont* font = io.Fonts->AddFontFromFileTTF(fileLocation.c_str(), 20.0f);
     }
     
 

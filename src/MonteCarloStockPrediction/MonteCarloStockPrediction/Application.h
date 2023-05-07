@@ -1,4 +1,5 @@
 #pragma once
+#include "Engine/Algorithm.h"
 #include "vendor/iamgui/imgui.h"
 #include "vendor/iamgui/imgui_impl_glfw.h"
 #include "vendor/iamgui/imgui_impl_opengl3.h"
@@ -7,8 +8,6 @@
 #include <iostream>
 #include <fstream>
 #include "screen/Screen.h"
-#include <CL/sycl.hpp>
-#include "Engine/Algorithm.h"
 
 class Application
 {
@@ -18,7 +17,7 @@ private:
 	std::map<boost::gregorian::date, float> data;
 	std::map<std::string, int> deviceNameToWorkload;
 	AlgorithmParameter parameter;
-	Algorithm *HMC_Wiggins;
+	WigginsAlgorithm* HMC_Wiggins;
 public:
 	Application();
 	~Application();
