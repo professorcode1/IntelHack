@@ -8,6 +8,9 @@
 #include <iostream>
 #include <fstream>
 #include "screen/Screen.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stbi/stbi.h"
+
 
 class Application
 {
@@ -18,6 +21,7 @@ private:
 	std::map<std::string, int> deviceNameToWorkload;
 	AlgorithmParameter parameter;
 	WigginsAlgorithm* HMC_Wiggins;
+
 public:
 	Application();
 	~Application();

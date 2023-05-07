@@ -1,5 +1,6 @@
 #pragma once
 #include <vector>
+#include <CL/sycl.hpp>
 
 typedef struct UniformParameters {
 	float lower;
@@ -48,6 +49,22 @@ typedef struct DiscreteProbabilityDistribution {
 	float max;
 	float sum;
 } DiscreteProbabilityDistribution;
+
+typedef struct DiscreteProbabilityDistribution_device {
+	cl::sycl::buffer<float> data;
+	float min;
+	float max;
+	float sum;
+
+	DiscreteProbabilityDistribution_device(DiscreteProbabilityDistribution dist):
+		data{dist.data}
+	{
+		this->max = dist.max;
+		this->min = dist.min;
+		this->sum = dist.sum;
+	}
+} DiscreteProbabilityDistribution_device;
+
 
 typedef struct AlgorithmResponse {
 	DiscreteProbabilityDistribution theta;

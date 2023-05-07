@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <CL/sycl.hpp>
+#include <GLFW/glfw3.h>
 
 struct FirstScreen {
 	char NameToSymbolCSVFile[500];
@@ -69,6 +70,8 @@ private:
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
 	std::function<AlgorithmParameter& ()> m_parameterReference;
 	std::function<void()> m_initialiseAlgorithm;
+
+	int m_width, m_height;
 	
 public:
 	Screen(
@@ -76,8 +79,12 @@ public:
 		const std::vector<cl::sycl::device> &AllDevice,
 		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 		const std::function<AlgorithmParameter& ()> &parameterReference,
-		const std::function<void()> initialiseAlgorithm
+		const std::function<void()> initialiseAlgorithm,
+		int width, int height
+
 	);
 	void Render();
+	unsigned char* intelBackgroundImageBuffer;
+	void DrawBackgrounImage();
 };
 

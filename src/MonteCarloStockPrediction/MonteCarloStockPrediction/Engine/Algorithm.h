@@ -8,7 +8,6 @@
 #include <map>	
 #include <unordered_map>
 #include <chrono>
-#include <CL/sycl.hpp>
 #include "ProbabilityDomain.h"
 #include "types.h"
 

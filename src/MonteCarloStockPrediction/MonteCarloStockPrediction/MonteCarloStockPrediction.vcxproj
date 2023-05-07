@@ -103,6 +103,8 @@
     <ClCompile Include="vendor\iamgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="vendor\iamgui\imgui_tables.cpp" />
     <ClCompile Include="vendor\iamgui\imgui_widgets.cpp" />
+    <ClCompile Include="vendor\pbPlots\pbPlots.cpp" />
+    <ClCompile Include="vendor\pbPlots\supportLib.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Engine\Algorithm.h" />
@@ -113,6 +115,7 @@
     <ClInclude Include="Engine\ProbabilityDomain.h" />
     <ClInclude Include="screen\Utils.h" />
     <ClInclude Include="screen\Screen.h" />
+    <ClInclude Include="vendor\stbi\stbi.h" />
     <ClInclude Include="vendor\iamgui\imconfig.h" />
     <ClInclude Include="vendor\iamgui\imgui.h" />
     <ClInclude Include="vendor\iamgui\imgui_impl_glfw.h" />
@@ -123,6 +126,8 @@
     <ClInclude Include="vendor\iamgui\imstb_rectpack.h" />
     <ClInclude Include="vendor\iamgui\imstb_textedit.h" />
     <ClInclude Include="vendor\iamgui\imstb_truetype.h" />
+    <ClInclude Include="vendor\pbPlots\pbPlots.h" />
+    <ClInclude Include="vendor\pbPlots\supportLib.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />

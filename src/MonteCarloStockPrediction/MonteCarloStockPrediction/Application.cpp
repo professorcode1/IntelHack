@@ -8,7 +8,8 @@ static inline bool file_exists(const std::string& name) {
     return f.good();
 }
 
-
+const unsigned int SCREEN_WIDTH = 1920;
+const unsigned int SCREEN_HEIGHT = 1024;
 Application::Application() :screen{ 
     [this](boost::gregorian::date date, float value) {
         this->data.insert(std::make_pair(date, value));
@@ -31,7 +32,7 @@ Application::Application() :screen{
             dataIterator++;
         }
         this->HMC_Wiggins = new WigginsAlgorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
-    }
+    }, SCREEN_WIDTH, SCREEN_HEIGHT
 } {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
@@ -46,8 +47,7 @@ Application::Application() :screen{
     //glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ only
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // 3.0+ only
 
-    const unsigned int SCREEN_WIDTH = 1920;
-    const unsigned int SCREEN_HEIGHT = 1024;
+
 
 
     this->window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Team Dekus Monte Carlo Engine", nullptr, nullptr);
@@ -74,22 +74,6 @@ Application::Application() :screen{
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return a nullptr. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Use '#define IMGUI_ENABLE_FREETYPE' in your imconfig file to use Freetype for higher quality font rendering.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    // - Our Emscripten build process allows embedding fonts to be accessible at runtime from the "fonts/" folder. See Makefile.emscripten for details.
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf", 18.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, nullptr, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != nullptr);
     std::filesystem::path goodFontFileLocationObject = 
         std::filesystem::current_path() / "assets" / "Roboto-Medium.ttf";
     std::string fileLocation = goodFontFileLocationObject.string();
@@ -97,7 +81,19 @@ Application::Application() :screen{
         ImFont* font = io.Fonts->AddFontFromFileTTF(fileLocation.c_str(), 20.0f);
     }
     
+    std::filesystem::path intelImageFileLocationObject =
+        std::filesystem::current_path() / "assets" / "oneAPI.jpg";
+    std::string imageFileLoc = intelImageFileLocationObject.string();
+    if (file_exists(imageFileLoc)) {
+        stbi_set_flip_vertically_on_load(1);
+        int m_Width = SCREEN_WIDTH, m_Height=SCREEN_HEIGHT, m_BPP = 0;
 
+        this->screen.intelBackgroundImageBuffer = 
+            stbi_load(imageFileLoc.c_str(), &m_Width, &m_Height, &m_BPP, 4);
+
+    }
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     {
         this->parameter.m_MCMCIteration = 3000;
         this->parameter.m_GraphUpdateIteration = 100;
@@ -135,26 +131,25 @@ void Application::main_loop() {
 
     while (!glfwWindowShouldClose(window))
     {
-        glfwPollEvents();
+        glClearColor(5.0f / 255, 1.0f / 255, 74.0f / 255, 0.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Start the Dear ImGui frame
+
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         this->screen.Render();
 
-        // Rendering
         ImGui::Render();
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
-        //glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
+        glfwPollEvents();
+
     }
 }
 

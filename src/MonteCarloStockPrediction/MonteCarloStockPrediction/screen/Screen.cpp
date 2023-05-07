@@ -12,14 +12,17 @@ Screen::Screen(
 	const std::vector<cl::sycl::device>& AllDevice,
 	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 	const std::function<AlgorithmParameter& ()>& parameterReference,
-	const std::function<void()> initialiseAlgorithm
+	const std::function<void()> initialiseAlgorithm,
+	int width, int height
 ) :
     screenstate{ ScreenState::First },
 	m_populate_Data{ populate_Data },
 	m_AllDevice{AllDevice},
 	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference },
 	m_parameterReference{ parameterReference },
-	m_initialiseAlgorithm{ initialiseAlgorithm }
+	m_initialiseAlgorithm{ initialiseAlgorithm },
+	intelBackgroundImageBuffer{nullptr},
+	m_width{width},m_height{height}
 {
     strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
     strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key");
@@ -72,7 +75,6 @@ void Screen::FirstScreenRender() {
 
 	if (show_demo_window)
 		ImGui::ShowDemoWindow(&show_demo_window);
-
 }
 
 void Screen::LoadSecondScreen() {
@@ -336,7 +338,15 @@ void Screen::SixthScreenRender() {
 	ImGui::End();
 }
 
+void Screen::DrawBackgrounImage() {
+	if (this->intelBackgroundImageBuffer == nullptr) {
+		std::cout << "nullptr image" << std::endl;
+		return;
+	}
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->intelBackgroundImageBuffer);
+}
 void Screen::Render() {
+	this->DrawBackgrounImage();
 	switch (this->screenstate)	{
 		case ScreenState::First:
 			return this->FirstScreenRender();
