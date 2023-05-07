@@ -235,7 +235,7 @@ void Screen::LoadFourthScreen(const cpr::Response& response) {
 		internalStockData.insert(std::make_pair(date, value));
 	}
 	this->fourthScreen.preference.resize(this->m_AllDevice.size());
-	generateLargeStockPlot(internalStockData, this->thirdScreen.StockName);
+	generateLargeStockPlot(std::move(internalStockData), this->thirdScreen.StockName);
 	std::fill(this->fourthScreen.preference.begin(), this->fourthScreen.preference.end(), 0);
 	this->screenstate = ScreenState::Fourth;
 }
@@ -365,14 +365,31 @@ void Screen::SixthScreenRender() {
 	this->m_algorithmIterate();
 }
 
+void LoadBitMapIntoOpenGLFormat(
+	unsigned char* largeStocksPlot,
+	uint32_t m_width, uint32_t m_height,
+	RGBABitmapImageReference* canvasReference
+) {
+	for (uint32_t x = 0; x < m_width; x++) {
+		for (uint32_t y = 0; y < m_height; y++) {
+			int position = (x + y * m_width) * 4;
+			uint32_t x_inverse = x;
+			uint32_t y_inverse = m_height - (y + 1);
+			largeStocksPlot[position] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->r * 255;
+			largeStocksPlot[position + 1] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->g * 255;
+			largeStocksPlot[position + 2] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->b * 255;
+			largeStocksPlot[position + 3] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->a * 255;
+		}
+	}
+}
+
 void Screen::generateLargeStockPlot(
 	const std::map<boost::gregorian::date, float>& dateMap,
 	const std::string& stockName
 ) {
 	RGBABitmapImageReference* canvasReference;
 	canvasReference = CreateRGBABitmapImageReference();
-	ScatterPlotSettings* settings;
-	settings = GetDefaultScatterPlotSettings();
+	this->stocksSettings = GetDefaultScatterPlotSettings();
 	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
 
 	int days = min(dateMap.size(), 30);
@@ -389,54 +406,88 @@ void Screen::generateLargeStockPlot(
 
 
 
-	settings->scatterPlotSeries = new std::vector<ScatterPlotSeries*>(1.0);
-	settings->scatterPlotSeries->at(0) = new ScatterPlotSeries();
-	settings->scatterPlotSeries->at(0)->xs = xs;
-	settings->scatterPlotSeries->at(0)->ys = ys;
-	settings->scatterPlotSeries->at(0)->linearInterpolation = true;
-	settings->scatterPlotSeries->at(0)->lineType = toVector(L"solid");
-	settings->scatterPlotSeries->at(0)->lineThickness = 3.0;
-	settings->scatterPlotSeries->at(0)->color = CreateRGBColor(1.0, 0.0, 0.0);
+	this->stocksSettings->scatterPlotSeries = new std::vector<ScatterPlotSeries*>(1.0);
+	this->stocksSettings->scatterPlotSeries->at(0) = new ScatterPlotSeries();
+	this->stocksSettings->scatterPlotSeries->at(0)->xs = xs;
+	this->stocksSettings->scatterPlotSeries->at(0)->ys = ys;
+	this->stocksSettings->scatterPlotSeries->at(0)->linearInterpolation = true;
+	this->stocksSettings->scatterPlotSeries->at(0)->lineType = toVector(L"solid");
+	this->stocksSettings->scatterPlotSeries->at(0)->lineThickness = 3.0;
+	this->stocksSettings->scatterPlotSeries->at(0)->color = CreateRGBColor(1.0, 0.0, 0.0);
 
-	settings->autoBoundaries = false;
-	settings->xMin = 0;
-	settings->xMax = days + 3;
-	settings->yMin = 0;
-	settings->yMax = (*std::max_element(ys->begin(), ys->end())) * 1.2;
-	settings->yLabel = toVector(L"Stock Price");
-	settings->xLabel = toVector(L"Time");
+	this->stocksSettings->autoBoundaries = false;
+	this->stocksSettings->xMin = 0;
+	this->stocksSettings->xMax = days + 3;
+	this->stocksSettings->yMin = 0;
+	this->stocksSettings->yMax = (*std::max_element(ys->begin(), ys->end())) * 1.2;
+	this->stocksSettings->yLabel = toVector(L"Stock Price");
+	this->stocksSettings->xLabel = toVector(L"Time");
 
 	std::wstring widestr = std::wstring(stockName.begin(), stockName.end());
 	const wchar_t* widecstr = widestr.c_str();
 
-	settings->title = toVector(widecstr);
-	settings->width = this->m_width;
-	settings->height = this->m_height;
+	this->stocksSettings->title = toVector(widecstr);
+	this->stocksSettings->width = this->m_width;
+	this->stocksSettings->height = this->m_height;
 
 
 
-	bool success = DrawScatterPlotFromSettings(canvasReference, settings, errorMessage);
+	bool success = DrawScatterPlotFromSettings(canvasReference, this->stocksSettings, errorMessage);
 	if (!success) {
 		throw std::runtime_error("could not draw plot");
 	}
 	this->largeStocksPlot = new unsigned char[m_width * m_height * 4];
-	for (uint32_t x = 0; x < m_width; x++) {
-		for (uint32_t y = 0; y < m_height; y++) {
-			int position = (x + y * m_width) * 4;
-			uint32_t x_inverse = x ;
-			uint32_t y_inverse = m_height - (y + 1);
-			this->largeStocksPlot[position] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->r * 255;
-			this->largeStocksPlot[position + 1] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->g * 255;
-			this->largeStocksPlot[position + 2] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->b * 255;
-			this->largeStocksPlot[position + 3] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->a * 255;
-		}
-	}
+	LoadBitMapIntoOpenGLFormat(this->largeStocksPlot, m_width, m_height, canvasReference);
 
 }
+
 
 void Screen::DrawStockGraph() {
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largeStocksPlot);
 }
+void Screen::updateAlgorithmProgressPage() {
+	if (this->algorithm_progress_screen == nullptr) {
+		this->algorithm_progress_screen = new unsigned char[m_width * m_height * 4];
+	}
+	RGBABitmapImageReference* thetaCanvas;
+	RGBABitmapImageReference* muCanvas;
+	RGBABitmapImageReference* SigmaCanvas;
+	RGBABitmapImageReference* stocksCanvas;
+	BarPlotSettings* thetaSettings = GetDefaultBarPlotSettings();;
+	BarPlotSettings* muSettings = GetDefaultBarPlotSettings();;
+	BarPlotSettings* SigmaSettings = GetDefaultBarPlotSettings();;
+	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
+
+	const int small_width = 810, small_height = 362;
+
+	auto algorithmRes = this->m_algorithmResonse();
+
+
+	thetaSettings->autoBoundaries = true;
+	thetaSettings->autoPadding = true;
+	thetaSettings->title = toVector(L"Theta Posterior Distribution");
+	thetaSettings->showGrid = false;
+	thetaSettings->yLabel = toVector(L"Probability");
+	thetaSettings->autoColor = true;
+	thetaSettings->grayscaleAutoColor = false;
+	thetaSettings->autoSpacing = true;
+	thetaSettings->autoLabels = true;
+	/*settings.colors; */
+	thetaSettings->width = this->m_width;
+	thetaSettings->height = this->m_height;
+	thetaSettings->barBorder = false;
+	thetaSettings->barPlotSeries = new std::vector<BarPlotSeries*>(1.0);
+	thetaSettings->barPlotSeries->at(0) = GetDefaultBarPlotSeriesSettings();
+	thetaSettings->barPlotSeries->at(0)->ys = new std::vector<double>(algorithmRes.theta.data.size());
+	for (int i = 0; i < algorithmRes.theta.data.size(); i++) {
+		thetaSettings->barPlotSeries->at(0)->ys->at(i) = algorithmRes.theta.data[i];
+	}
+	//this->stocksSettings->height = small_height;
+	//this->stocksSettings->width = small_width;
+	//bool success = DrawScatterPlotFromSettings(stocksCanvas, this->stocksSettings, errorMessage);
+
+}
+
 
 void Screen::DrawBackgrounImage() {
 	if (this->intelBackgroundImageBuffer == nullptr) {

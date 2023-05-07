@@ -86,11 +86,11 @@ private:
 	std::function<AlgorithmResponse()> m_algorithmResonse;
 
 	unsigned char* largeStocksPlot;
-	//RGBABitmapImageReference* stocksPlot;
-	//RGBABitmapImageReference* ThetaHistogram;
-	//RGBABitmapImageReference* MuHistogram;
-	//RGBABitmapImageReference* SigmaHistogram;
+	ScatterPlotSettings* stocksSettings;
+	
+	unsigned char* algorithm_progress_screen;
 
+	void updateAlgorithmProgressPage();
 	int m_width, m_height;
 	
 public:
