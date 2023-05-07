@@ -13,6 +13,10 @@ Screen::Screen(
 	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 	const std::function<AlgorithmParameter& ()>& parameterReference,
 	const std::function<void()> initialiseAlgorithm,
+	const std::function<void()>& algorithmIterate,
+	const std::function<float()>& algorithmCompletionPercent,
+	const std::function<bool()>& algorithmCompleted,
+	const std::function<AlgorithmResponse()>& algorithmResonse,
 	int width, int height
 ) :
     screenstate{ ScreenState::First },
@@ -22,10 +26,19 @@ Screen::Screen(
 	m_parameterReference{ parameterReference },
 	m_initialiseAlgorithm{ initialiseAlgorithm },
 	intelBackgroundImageBuffer{nullptr},
+	m_algorithmIterate{ algorithmIterate },
+	m_algorithmCompletionPercent{ algorithmCompletionPercent },
+	m_algorithmCompleted{ algorithmCompleted },
+	m_algorithmResonse{ algorithmResonse },
 	m_width{width},m_height{height}
 {
-    strcpy_s(firstScreen.NameToSymbolCSVFile,"C:\\Users\\raghk\\Documents\\IntelHack\\data\\nasdaq_screener_1682959560424.csv");
-    strcpy_s(firstScreen.APIKeyFile, "C:\\Users\\raghk\\Documents\\IntelHack\\data\\StocksAPI.key");
+	std::filesystem::path stockSymbolFileLocationObject =
+		std::filesystem::current_path() / "assets" / "nasdaq_screener_1682959560424.csv";
+
+	std::filesystem::path apiKeyFileLocationObject =
+		std::filesystem::current_path() / "assets" / "StocksAPI.key";
+    strcpy_s(firstScreen.NameToSymbolCSVFile, stockSymbolFileLocationObject.string().c_str());
+    strcpy_s(firstScreen.APIKeyFile, apiKeyFileLocationObject.string().c_str());
 	firstScreen.StockMetricSelectionIndex = 0;
 }
 

@@ -32,7 +32,20 @@ Application::Application() :screen{
             dataIterator++;
         }
         this->HMC_Wiggins = new WigginsAlgorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
-    }, SCREEN_WIDTH, SCREEN_HEIGHT
+    }, 
+    [this]() {
+        this->HMC_Wiggins->iterate();
+    },
+    [this]() {
+        return this->HMC_Wiggins->percent_of_completion();
+    },
+    [this]() {
+        return this->HMC_Wiggins->is_completed();
+    },
+    [this]() {
+        return this->HMC_Wiggins->get_response();
+    },    
+        SCREEN_WIDTH, SCREEN_HEIGHT
 } {
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){

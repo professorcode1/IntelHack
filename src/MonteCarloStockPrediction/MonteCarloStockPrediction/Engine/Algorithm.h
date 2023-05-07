@@ -32,5 +32,9 @@ public:
 
 	bool is_completed();
 
+	float percent_of_completion();
+
 	void iterate();
+
+	AlgorithmResponse get_response();
 };

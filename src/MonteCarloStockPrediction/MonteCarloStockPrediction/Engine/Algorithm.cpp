@@ -294,10 +294,21 @@ void WigginsAlgorithm::BurnIn() {
 }
 
 bool WigginsAlgorithm::is_completed() {
-	const float number_of_iteration = 
+	const int number_of_iteration = 
 		this->m_parameter.m_MCMCIteration / this->m_parameter.m_GraphUpdateIteration
 		+ (this->m_parameter.m_MCMCIteration % this->m_parameter.m_GraphUpdateIteration > 0);
 	return this->iteration_count >= number_of_iteration;
+}
+
+float WigginsAlgorithm::percent_of_completion() {
+	const float number_of_iteration =
+		this->m_parameter.m_MCMCIteration / this->m_parameter.m_GraphUpdateIteration
+		+ (this->m_parameter.m_MCMCIteration % this->m_parameter.m_GraphUpdateIteration > 0);
+	return this->iteration_count * 100 / number_of_iteration;
+}
+
+AlgorithmResponse WigginsAlgorithm::get_response() {
+	return this->m_response;
 }
 
 uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float value) {
@@ -335,7 +346,9 @@ void fill_buffer(cl::sycl::handler& h, cl::sycl::buffer<uint32_t, 1>& buffer, ui
 cl::sycl::event exectue_wiggins_algorithm_on_device(
 	cl::sycl::queue &q, const AlgorithmDeviceData &device_data,
 	const AlgorithmParameter &parameter, const ProbabilityDomain &start,
-	 cl::sycl::buffer<float,1> returns
+	cl::sycl::buffer<float,1> returns, cl::sycl::buffer<uint32_t, 1> &probabilityDomainSum,
+	cl::sycl::buffer<uint32_t, 1> &delta_theta, cl::sycl::buffer<uint32_t, 1>& delta_mu,
+	cl::sycl::buffer<uint32_t, 1>& delta_sigma
 ){
 	using namespace cl::sycl;
 	const int workItems = ceil(parameter.m_GraphUpdateIteration * device_data.m_workload_fraction);
@@ -343,16 +356,6 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 	buffer<uint32_t, 1> mu(workItems);
 	buffer<uint32_t, 1> sigma(workItems);
 	const uint32_t quantisation = parameter.m_DiscretCountOfContinuiosSpace;
-
-	buffer<uint32_t, 1> delta_theta(quantisation);
-	buffer<uint32_t, 1> delta_mu(quantisation);
-	buffer<uint32_t, 1> delta_sigma(quantisation);
-	 
-	const buffer<float, 1>& deviceThetaHist = device_data.theta.data;
-	const buffer<float, 1>& deviceMuHist = device_data.mu.data;
-	const buffer<float, 1>& deviceSigmaHist= device_data.sigma.data;
-	
-	buffer<uint32_t, 1> probabilityDomainSum(3);
 
 	int tsLength = returns.size();
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -416,7 +419,6 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 		accessor delta_muAccessor(delta_mu, h, write_only);
 		accessor delta_sigmaAccessor(delta_sigma, h, write_only);
 
-		accessor thetaHistAccessor(deviceThetaHist, h, read_write);
 		const int maximum_binary_search_iterations = ceil(log2(workItems)) + 1;//+1 to avoid risk
 		//better a little slow than 5 hours debugging
 		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
@@ -527,10 +529,6 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 			});
 
 		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-				
-		});
-
-		h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
 			auto theta = sycl::ext::oneapi::atomic_ref<
 				uint32_t, sycl::ext::oneapi::memory_order::relaxed,
 				sycl::ext::oneapi::memory_scope::device,
@@ -552,16 +550,32 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 	});
 }
 
+
 void WigginsAlgorithm::iterate() {
+	using namespace cl::sycl;
 	std::vector<cl::sycl::event> events;
+	std::vector<cl::sycl::buffer<uint32_t, 1> > thetaHists;
+	std::vector<cl::sycl::buffer<uint32_t, 1> > muHists;
+	std::vector<cl::sycl::buffer<uint32_t, 1> > sigmaHists;
+	std::vector<cl::sycl::buffer<uint32_t, 1> > ProbabilityDist;
+	int quantisation = this->m_parameter.m_DiscretCountOfContinuiosSpace;
 	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
+		thetaHists.emplace_back(quantisation);
+		muHists.emplace_back(quantisation);
+		sigmaHists.emplace_back(quantisation);
+		ProbabilityDist.emplace_back(3);
 		events.push_back(
 			exectue_wiggins_algorithm_on_device(
 				this->m_QueuesAndData[deviceIndex].first,
 				this->m_QueuesAndData[deviceIndex].second,
-				this->m_parameter,this->start,
-				this->m_returns
+				this->m_parameter, this->start,
+				this->m_returns, ProbabilityDist.back(),
+				thetaHists.back(), muHists.back(), sigmaHists.back()
 			)
 		);
+	}
+
+	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
+		events[deviceIndex].wait();
 	}
 }

@@ -71,6 +71,12 @@ private:
 	std::function<AlgorithmParameter& ()> m_parameterReference;
 	std::function<void()> m_initialiseAlgorithm;
 
+	std::function<void()> m_algorithmIterate;
+	std::function<float()> m_algorithmCompletionPercent;
+	std::function<bool()> m_algorithmCompleted;
+	std::function<AlgorithmResponse()> m_algorithmResonse;
+
+
 	int m_width, m_height;
 	
 public:
@@ -80,8 +86,11 @@ public:
 		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 		const std::function<AlgorithmParameter& ()> &parameterReference,
 		const std::function<void()> initialiseAlgorithm,
+		const std::function<void()> &algorithmIterate,
+		const std::function<float()> &algorithmCompletionPercent,
+		const std::function<bool()> &algorithmCompleted,
+		const std::function<AlgorithmResponse()> &algorithmResonse,
 		int width, int height
-
 	);
 	void Render();
 	unsigned char* intelBackgroundImageBuffer;
