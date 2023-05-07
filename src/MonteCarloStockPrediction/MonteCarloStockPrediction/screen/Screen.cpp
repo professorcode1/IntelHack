@@ -163,7 +163,7 @@ void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockS
 	this->thirdScreen.StockName = StockSelected->first;
 	this->thirdScreen.StockSymbol = StockSelected->second;
 	
-	auto r = cpr::GetAsync(
+	/*auto r = cpr::GetAsync(
 		cpr::Url("https://alpha-vantage.p.rapidapi.com/query"),
 		cpr::Parameters{
 			{"function" , "TIME_SERIES_DAILY"},
@@ -176,6 +176,8 @@ void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockS
 			{	"X-RapidAPI-Key" , this->secondScreen.APIKey}
 		}
 	);
+	*/
+	auto r = cpr::GetAsync(cpr::Url("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo"));
 	this->thirdScreen.APICallResponse = new cpr::AsyncResponse(std::move(r));
 	this->screenstate = ScreenState::Third;
 }
@@ -258,33 +260,33 @@ void Screen::FifthScreenRender() {
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Theta Parameters");
-	ImGui::InputScalar("lower", ImGuiDataType_Float, &parameter.m_volatility_theta.lower);
-	ImGui::InputScalar("upper", ImGuiDataType_Float, &parameter.m_volatility_theta.upper);
-	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_theta.testval);
-	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_theta.guassian_step_sd);
+	ImGui::InputScalar("lower #1", ImGuiDataType_Float, &parameter.m_volatility_theta.lower);
+	ImGui::InputScalar("upper #1", ImGuiDataType_Float, &parameter.m_volatility_theta.upper);
+	ImGui::InputScalar("test value #1", ImGuiDataType_Float, &parameter.m_volatility_theta.testval);
+	ImGui::InputScalar("guassian step standard deviation #1", ImGuiDataType_Float, &parameter.m_volatility_theta.guassian_step_sd);
 	
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Mu Parameters");
 	ImGui::InputScalar("mean", ImGuiDataType_Float, &parameter.m_volatility_mu.mean);
 	ImGui::InputScalar("standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.sd);
-	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_mu.testval);
-	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.guassian_step_sd);
+	ImGui::InputScalar("test value #2", ImGuiDataType_Float, &parameter.m_volatility_mu.testval);
+	ImGui::InputScalar("guassian step standard deviation #2", ImGuiDataType_Float, &parameter.m_volatility_mu.guassian_step_sd);
 	ImGui::InputScalar("Buffer range sigma multiplier", ImGuiDataType_U32, &parameter.m_volatility_mu.buffer_range_sigma_multiplier);
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Sigma Parameters");
-	ImGui::InputScalar("lower", ImGuiDataType_Float, &parameter.m_volatility_sigma.lower);
-	ImGui::InputScalar("upper", ImGuiDataType_Float, &parameter.m_volatility_sigma.upper);
-	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility_sigma.testval);
-	ImGui::InputScalar("guassian step standard deviation", ImGuiDataType_Float, &parameter.m_volatility_sigma.guassian_step_sd);
+	ImGui::InputScalar("lower #2", ImGuiDataType_Float, &parameter.m_volatility_sigma.lower);
+	ImGui::InputScalar("upper #2", ImGuiDataType_Float, &parameter.m_volatility_sigma.upper);
+	ImGui::InputScalar("test value #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.testval);
+	ImGui::InputScalar("guassian step standard deviation #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.guassian_step_sd);
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Parameters");
 	ImGui::InputScalar("time delta", ImGuiDataType_Float, &parameter.m_volatility.dt);
 	ImGui::InputScalar("brownian Motion delta lower bound", ImGuiDataType_Float, &parameter.m_volatility.dw_lower);
 	ImGui::InputScalar("brownian Motion delta upper bound", ImGuiDataType_Float, &parameter.m_volatility.dw_upper);
-	ImGui::InputScalar("test value", ImGuiDataType_Float, &parameter.m_volatility.testval);
+	ImGui::InputScalar("test value #4", ImGuiDataType_Float, &parameter.m_volatility.testval);
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Number of iterations");

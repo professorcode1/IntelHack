@@ -45,6 +45,7 @@ public:
 	float potential_energy_U(
 		const ProbabilityDomain domain,
 		ProbabilityDomain& differential,
+		const AlgorithmParameter& parameters,
 		int timeSeriesLength,
 		oneapi::dpl::uniform_real_distribution<float>& dW,
 		oneapi::dpl::minstd_rand& engine,
@@ -54,6 +55,7 @@ public:
 	ProbabilityDomain potential_energy_gradient(
 		const ProbabilityDomain domain,
 		int timeSeriesLength,
+		const AlgorithmParameter& parameters,
 		oneapi::dpl::uniform_real_distribution<float>& dW,
 		oneapi::dpl::minstd_rand& engine,
 		const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
@@ -64,6 +66,7 @@ public:
 		int leapfrog,
 		const ProbabilityDomain current_q,
 		ProbabilityDomain& new_domain,
+		const AlgorithmParameter& parameters,
 		oneapi::dpl::normal_distribution<float>& theta_normal,
 		oneapi::dpl::normal_distribution<float>& mu_normal,
 		oneapi::dpl::normal_distribution<float>& sigma_normal,
