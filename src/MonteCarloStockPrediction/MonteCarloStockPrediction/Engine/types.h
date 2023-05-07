@@ -2,13 +2,34 @@
 #include <vector>
 #include <CL/sycl.hpp>
 
+typedef struct DiscreteProbabilityDistribution {
+	std::vector<float> data;
+	float min;
+	float max;
+	float sum;
+} DiscreteProbabilityDistribution;
+
+typedef struct DiscreteProbabilityDistribution_device {
+	cl::sycl::buffer<float> data;
+	float min;
+	float max;
+	float sum;
+	DiscreteProbabilityDistribution_device() = delete;
+	DiscreteProbabilityDistribution_device(const DiscreteProbabilityDistribution& dist) :
+		data{ dist.data } {
+		this->max = dist.max;
+		this->min = dist.min;
+		this->sum = dist.sum;
+	}
+} DiscreteProbabilityDistribution_device;
+
 typedef struct UniformParameters {
 	float lower;
 	float upper;
 	float testval;
 	float guassian_step_sd;
 
-	std::pair<std::vector<float>, float> generateBuffer(uint32_t DiscretCountOfContinuiosSpace);
+	DiscreteProbabilityDistribution generateBuffer(uint32_t DiscretCountOfContinuiosSpace) const;
 } UniformParameters;
 
 typedef struct NormalParameter {
@@ -18,8 +39,8 @@ typedef struct NormalParameter {
 	float guassian_step_sd;
 	uint32_t buffer_range_sigma_multiplier;
 
-	float evaluate(float x);
-	std::pair<std::vector<float>, float> generateBuffer(uint32_t DiscretCountOfContinuiosSpace);
+	float evaluate(float x) const;
+	DiscreteProbabilityDistribution generateBuffer(uint32_t DiscretCountOfContinuiosSpace) const;
 } NormalParameter;
 
 typedef struct EulerMaruyama {
@@ -43,35 +64,36 @@ typedef struct AlgorithmParameter {
 	float m_epsilon;
 } AlgorithmParameter;
 
-typedef struct DiscreteProbabilityDistribution {
-	std::vector<float> data;
-	float min;
-	float max;
-	float sum;
-} DiscreteProbabilityDistribution;
 
-typedef struct DiscreteProbabilityDistribution_device {
-	cl::sycl::buffer<float> data;
-	float min;
-	float max;
-	float sum;
-
-	DiscreteProbabilityDistribution_device(DiscreteProbabilityDistribution dist):
-		data{dist.data}
-	{
-		this->max = dist.max;
-		this->min = dist.min;
-		this->sum = dist.sum;
-	}
-} DiscreteProbabilityDistribution_device;
 
 
 typedef struct AlgorithmResponse {
 	DiscreteProbabilityDistribution theta;
 	DiscreteProbabilityDistribution mu;
 	DiscreteProbabilityDistribution sigma;
+	AlgorithmResponse() = delete;
+	AlgorithmResponse(
+		const DiscreteProbabilityDistribution& t,
+		const DiscreteProbabilityDistribution& m,
+		const DiscreteProbabilityDistribution& s
+	) :theta{ t }, mu{ m }, sigma{ s } {};
 } AlgorithmResponse;
 
 typedef struct AlgorithmDeviceData {
 	float m_workload_fraction;
+	DiscreteProbabilityDistribution_device theta;
+	DiscreteProbabilityDistribution_device mu;
+	DiscreteProbabilityDistribution_device sigma;
+
+	AlgorithmDeviceData(
+		const DiscreteProbabilityDistribution& t,
+		const DiscreteProbabilityDistribution& m,
+		const DiscreteProbabilityDistribution& s,
+		float workload_fraction
+	) :theta{ t }, mu{ m }, sigma{ s }, m_workload_fraction{ workload_fraction } {};
+
+	AlgorithmDeviceData(
+		const AlgorithmResponse& algorithmRes,
+		float workload_fraction
+	) :theta{ algorithmRes.theta }, mu{ algorithmRes.mu }, sigma{ algorithmRes.sigma }, m_workload_fraction{ workload_fraction } {};
 } AlgorithmDeviceData;
