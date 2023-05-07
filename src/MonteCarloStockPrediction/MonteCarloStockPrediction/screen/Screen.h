@@ -3,6 +3,8 @@
 #include "../vendor/iamgui/imgui_impl_glfw.h"
 #include "../vendor/iamgui/imgui_impl_opengl3.h"
 #include "../vendor/iamgui/imspinner.h"
+#include "../vendor/pbPlots/pbPlots.h"
+#include "../vendor/pbPlots/supportLib.h"
 #include "Utils.h"
 #include "../Engine/types.h"
 #include <string>
@@ -66,6 +68,12 @@ private:
 	void LoadSixthScreen();
 	void SixthScreenRender();
 
+
+	void generateLargeStockPlot(
+		const std::map<boost::gregorian::date, float>& dateMap,
+		const std::string& stockName
+	);
+
 	std::function<void(boost::gregorian::date, float)> m_populate_Data;
 	const std::vector<cl::sycl::device> m_AllDevice;
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
@@ -77,6 +85,11 @@ private:
 	std::function<bool()> m_algorithmCompleted;
 	std::function<AlgorithmResponse()> m_algorithmResonse;
 
+	unsigned char* largeStocksPlot;
+	//RGBABitmapImageReference* stocksPlot;
+	//RGBABitmapImageReference* ThetaHistogram;
+	//RGBABitmapImageReference* MuHistogram;
+	//RGBABitmapImageReference* SigmaHistogram;
 
 	int m_width, m_height;
 	
@@ -96,5 +109,6 @@ public:
 	void Render();
 	unsigned char* intelBackgroundImageBuffer;
 	void DrawBackgrounImage();
+	void DrawStockGraph();
 };
 

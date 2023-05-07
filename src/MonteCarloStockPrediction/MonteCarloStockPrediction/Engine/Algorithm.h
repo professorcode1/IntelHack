@@ -37,4 +37,6 @@ public:
 	void iterate();
 
 	AlgorithmResponse get_response();
+
+	void inference(uint32_t number_of_days);
 };

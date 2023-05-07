@@ -109,7 +109,7 @@ Application::Application() :screen{
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     {
         this->parameter.m_MCMCIteration = 3000;
-        this->parameter.m_GraphUpdateIteration = 100;
+        this->parameter.m_GraphUpdateIteration = 300;
         this->parameter.m_NumberOfDaysToUse = 365;
         this->parameter.m_BurnIn = 1000;
         this->parameter.m_DiscretCountOfContinuiosSpace = 100;

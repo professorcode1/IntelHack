@@ -226,13 +226,16 @@ void Screen::LoadFourthScreen(const cpr::Response& response) {
 	using namespace boost::gregorian;
 	const nlohmann::json responseJson = nlohmann::json::parse(response.text);
 	const nlohmann::json timeseries = responseJson.at("Time Series (Daily)");
+	std::map<date, float> internalStockData;
 	for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
 		date date(from_simple_string(time_quanta.key()));
 		const std::string valueString = time_quanta.value().at(this->secondScreen.StockMetricToUse);
 		const float value = std::stof(valueString);
 		this->m_populate_Data(date, value);
+		internalStockData.insert(std::make_pair(date, value));
 	}
 	this->fourthScreen.preference.resize(this->m_AllDevice.size());
+	generateLargeStockPlot(internalStockData, this->thirdScreen.StockName);
 	std::fill(this->fourthScreen.preference.begin(), this->fourthScreen.preference.end(), 0);
 	this->screenstate = ScreenState::Fourth;
 }
@@ -352,18 +355,87 @@ void Screen::LoadSixthScreen() {
 
 void Screen::SixthScreenRender() {
 	ImGui::Begin("6th screen");
-	std::cout << "Calling m_algorithmCompletionPercent" << std::endl;
 	float res = this->m_algorithmCompletionPercent();
 	std::cout << res << std::endl;
 	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
 	ImGui::End();
-	std::cout << "Calling m_algorithmCompleted" << std::endl;
 	if (this->m_algorithmCompleted()) {
-		std::cout << "Setting State to secents" << std::endl;
 		this->screenstate = ScreenState::Seventh;
 	}
-	std::cout << "calling m_algorithmIterate" << std::endl;
 	this->m_algorithmIterate();
+}
+
+void Screen::generateLargeStockPlot(
+	const std::map<boost::gregorian::date, float>& dateMap,
+	const std::string& stockName
+) {
+	RGBABitmapImageReference* canvasReference;
+	canvasReference = CreateRGBABitmapImageReference();
+	ScatterPlotSettings* settings;
+	settings = GetDefaultScatterPlotSettings();
+	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
+
+	int days = min(dateMap.size(), 30);
+
+	std::vector<double>* xs, * ys;
+	xs = new std::vector<double>(days);
+	ys = new std::vector<double>(days);
+	for (int i = 0; i < days; i++) {
+		xs->at(i) = i + 1;
+		auto iterator = dateMap.rbegin();
+		std::advance(iterator, days - (i + 1));
+		ys->at(i) = iterator->second;
+	}
+
+
+
+	settings->scatterPlotSeries = new std::vector<ScatterPlotSeries*>(1.0);
+	settings->scatterPlotSeries->at(0) = new ScatterPlotSeries();
+	settings->scatterPlotSeries->at(0)->xs = xs;
+	settings->scatterPlotSeries->at(0)->ys = ys;
+	settings->scatterPlotSeries->at(0)->linearInterpolation = true;
+	settings->scatterPlotSeries->at(0)->lineType = toVector(L"solid");
+	settings->scatterPlotSeries->at(0)->lineThickness = 3.0;
+	settings->scatterPlotSeries->at(0)->color = CreateRGBColor(1.0, 0.0, 0.0);
+
+	settings->autoBoundaries = false;
+	settings->xMin = 0;
+	settings->xMax = days + 3;
+	settings->yMin = 0;
+	settings->yMax = (*std::max_element(ys->begin(), ys->end())) * 1.2;
+	settings->yLabel = toVector(L"Stock Price");
+	settings->xLabel = toVector(L"Time");
+
+	std::wstring widestr = std::wstring(stockName.begin(), stockName.end());
+	const wchar_t* widecstr = widestr.c_str();
+
+	settings->title = toVector(widecstr);
+	settings->width = this->m_width;
+	settings->height = this->m_height;
+
+
+
+	bool success = DrawScatterPlotFromSettings(canvasReference, settings, errorMessage);
+	if (!success) {
+		throw std::runtime_error("could not draw plot");
+	}
+	this->largeStocksPlot = new unsigned char[m_width * m_height * 4];
+	for (uint32_t x = 0; x < m_width; x++) {
+		for (uint32_t y = 0; y < m_height; y++) {
+			int position = (x + y * m_width) * 4;
+			uint32_t x_inverse = x ;
+			uint32_t y_inverse = m_height - (y + 1);
+			this->largeStocksPlot[position] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->r * 255;
+			this->largeStocksPlot[position + 1] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->g * 255;
+			this->largeStocksPlot[position + 2] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->b * 255;
+			this->largeStocksPlot[position + 3] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->a * 255;
+		}
+	}
+
+}
+
+void Screen::DrawStockGraph() {
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largeStocksPlot);
 }
 
 void Screen::DrawBackgrounImage() {
@@ -373,20 +445,27 @@ void Screen::DrawBackgrounImage() {
 	}
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->intelBackgroundImageBuffer);
 }
+
+
 void Screen::Render() {
-	this->DrawBackgrounImage();
 	switch (this->screenstate)	{
 		case ScreenState::First:
+			this->DrawBackgrounImage();
 			return this->FirstScreenRender();
 		case ScreenState::Second:
+			this->DrawBackgrounImage();
 			return this->SecondScreenRender();
 		case ScreenState::Third:
+			this->DrawBackgrounImage();
 			return this->ThirdScreenRender();
 		case ScreenState::Fourth:
+			this->DrawStockGraph();
 			return this->FourthScreenRender();
 		case ScreenState::Fifth:
+			this->DrawStockGraph();
 			return this->FifthScreenRender();
 		case ScreenState::Sixth:
+			this->DrawStockGraph();
 			return this->SixthScreenRender();
 		default:
 			std::cout << "Default hit in screen render function. Terminating" << std::endl;

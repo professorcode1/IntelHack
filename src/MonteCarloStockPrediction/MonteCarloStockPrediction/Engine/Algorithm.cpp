@@ -93,8 +93,6 @@ WigginsAlgorithm::WigginsAlgorithm(
 		
 		cl::sycl::queue q(devices[deviceIndex]);
 		int continuousDiscreteQuanta = this->m_parameter.m_DiscretCountOfContinuiosSpace;
-		std::cout << deviceName << std::endl;
-		std::cout << "Workload " << workload << " total " << workloadTotal << std::endl;
 		AlgorithmDeviceData algoDeviceData(
 			m_response,
 			(float)workload / (float)workloadTotal
