@@ -196,6 +196,9 @@ ProbabilityDomain potential_energy_gradient(
 	return gradient;
 }
 
+void clamp(float left, float& x, float right) {
+	x = std::min(right, std::max(x, left));
+}
 
 bool hmc_sample(
 	float epsilon,
@@ -215,22 +218,16 @@ bool hmc_sample(
 	ProbabilityDomain q = current_q;
 	ProbabilityDomain p{ theta_normal(engine) , mu_normal(engine), sigma_normal(engine) };
 	ProbabilityDomain current_p = p;
+	float mu_lower = parameters.m_volatility_mu.mean - parameters.m_volatility_mu.buffer_range_sigma_multiplier * parameters.m_volatility_mu.sd;
+	float mu_higher = parameters.m_volatility_mu.mean + parameters.m_volatility_mu.buffer_range_sigma_multiplier * parameters.m_volatility_mu.sd;
+
 	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns) * 0.5);
 	for (int i = 0; i < leapfrog - 1; i++) {
 		q = q + epsilon * p;
-		if (q.theta < parameters.m_volatility_theta.lower) {
-			q.theta = parameters.m_volatility_theta.lower;
-		}
-		else if (parameters.m_volatility_theta.upper < q.theta) {
-			q.theta = parameters.m_volatility_theta.upper;
-		}
-
-		if (q.sigma < parameters.m_volatility_sigma.lower) {
-			q.sigma = parameters.m_volatility_sigma.lower;
-		}
-		else if (parameters.m_volatility_sigma.upper < q.sigma) {
-			q.sigma = parameters.m_volatility_sigma.upper;
-		}
+		clamp(parameters.m_volatility_theta.lower, q.theta, parameters.m_volatility_theta.upper);
+		clamp(mu_lower, q.mu, mu_higher);
+		clamp(parameters.m_volatility_sigma.lower, q.sigma, parameters.m_volatility_sigma.upper);
+		
 		p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns));
 	}
 	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns) * 2.0f);
@@ -326,41 +323,11 @@ AlgorithmResponse WigginsAlgorithm::get_response() {
 uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float value) {
 	float delx = (upper - lower) / divisions;
 	uint32_t res = floor((value - lower) / delx);
+	if (res == divisions) {
+		return res - 1;
+	}
 	return res;
 }
-
-void sort_buffer(cl::sycl::queue& q, cl::sycl::buffer<uint32_t, 1> &buffer) {
-	//int buffer_size = buffer.size();
-	//cl::sycl::event return_event;
-	//for (int sort_step = 0; sort_step <= buffer_size; sort_step++) {
-	//	//<= to avoid risk. 
-	//	return_event = q.submit([&](cl::sycl::handler& h) {
-	//		cl::sycl::accessor bufferAccessor(buffer, cl::sycl::read_write);
-	//		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
-	//			int i = 1 + thread_id * 2;
-	//			if (bufferAccessor[i] > bufferAccessor[i + 1]) {
-	//				std::swap(bufferAccessor[i], bufferAccessor[i + 1]);
-	//			}
-	//		});
-	//	});
-	//	return_event = q.submit([&](cl::sycl::handler& h) {
-	//		cl::sycl::accessor bufferAccessor(buffer, cl::sycl::read_write);
-	//		h.parallel_for(cl::sycl::range<1>((buffer_size - 1) / 2), [=](cl::sycl::id<1> thread_id) {
-	//			int i = thread_id * 2;
-	//			if (bufferAccessor[i] > bufferAccessor[i + 1]) {
-	//				std::swap(bufferAccessor[i], bufferAccessor[i + 1]);
-	//			}
-	//		});
-	//	});
-	//}
-	//return return_event;
-	//I cannot for the life of me figure out why the above implementaion fails. So I just giving up now
-	//explictly sorting on the cpu
-	using cl::sycl;
-	host_accessor resultHostAccessor(buffer, read_only);
-
-}
-
 
 void fill_buffer(cl::sycl::handler& h, cl::sycl::buffer<uint32_t, 1>& buffer, uint32_t fillValue) {
 	using namespace cl::sycl;
@@ -373,23 +340,17 @@ void fill_buffer(cl::sycl::handler& h, cl::sycl::buffer<uint32_t, 1>& buffer, ui
 
 
 cl::sycl::event exectue_wiggins_algorithm_on_device(
-	cl::sycl::queue &q, const AlgorithmDeviceData &device_data,
+	cl::sycl::queue &q, const AlgorithmDeviceData &device_data,int workItems,
 	const AlgorithmParameter &parameter, const ProbabilityDomain &start,
-	cl::sycl::buffer<float,1> returns, cl::sycl::buffer<uint32_t, 1> &probabilityDomainSum,
-	cl::sycl::buffer<uint32_t, 1> &delta_theta, cl::sycl::buffer<uint32_t, 1>& delta_mu,
-	cl::sycl::buffer<uint32_t, 1>& delta_sigma
+	cl::sycl::buffer<float,1> returns,cl::sycl::buffer<float, 1> &theta, 
+	cl::sycl::buffer<float, 1>& mu, cl::sycl::buffer<float, 1>& sigma
 ){
 	using namespace cl::sycl;
-	const int workItems = ceil(parameter.m_GraphUpdateIteration * device_data.m_workload_fraction);
-	buffer<uint32_t, 1> theta(workItems);
-	buffer<uint32_t, 1> mu(workItems);
-	buffer<uint32_t, 1> sigma(workItems);
-	const uint32_t quantisation = parameter.m_DiscretCountOfContinuiosSpace;
 
 	int tsLength = returns.size();
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
 	//run the MNC Algorithm, write result to theta mu sigma buffer 
-	q.submit([&](handler& h) {
+	return q.submit([&](handler& h) {
 		accessor thetaAccessor(theta, h, write_only);
 		accessor muAccessor(mu, h, write_only);
 		accessor sigmaAccessor(sigma, h, write_only);
@@ -416,218 +377,82 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 				engine,
 				returnsAccessor
 			);
-			thetaAccessor[thread_id] = DistributionIndex(
-				parameter.m_volatility_theta.lower,
-				parameter.m_volatility_theta.upper,
-				parameter.m_DiscretCountOfContinuiosSpace,
-				nextDomain.theta
-			);
-			float mu_lower = parameter.m_volatility_mu.mean - parameter.m_volatility_mu.buffer_range_sigma_multiplier * parameter.m_volatility_mu.sd;
-			float mu_upper = parameter.m_volatility_mu.mean + parameter.m_volatility_mu.buffer_range_sigma_multiplier * parameter.m_volatility_mu.sd;
-			muAccessor[thread_id] = DistributionIndex(
-				mu_lower,
-				mu_upper,
-				parameter.m_DiscretCountOfContinuiosSpace,
-				nextDomain.mu
-			);
-			sigmaAccessor[thread_id] = DistributionIndex(
-				parameter.m_volatility_sigma.lower,
-				parameter.m_volatility_sigma.upper,
-				parameter.m_DiscretCountOfContinuiosSpace,
-				nextDomain.sigma
-			); ;
+			thetaAccessor[thread_id] = nextDomain.theta;
+			muAccessor[thread_id] = nextDomain.mu;
+			sigmaAccessor[thread_id] = nextDomain.sigma;
+			});
 		});
-	});
-	//sort the theta 
-	auto e1 = sort_buffer(q, theta);
-	e1.wait();
-	//sort the mu
-	auto e2 = sort_buffer(q, mu);
-	e2.wait();
-	//sort the sigma
-	auto e3 = sort_buffer(q, sigma);
-	e3.wait();
-	return e3;
-	////fill the delta theta, delta mu, delta sigma buffers with 0
-	//q.submit([&](handler& h) {
-	//	fill_buffer(h, delta_theta, 0);
-	//	fill_buffer(h, delta_mu, 0);
-	//	fill_buffer(h, delta_sigma, 0);
-	//});
-	////read the thea, mu sigma buffers and fill the delta theta, delta mu, delta sigma buffers
-	//q.submit([&](handler& h) {
-	//	accessor delta_thetaAccessor(delta_theta, h, write_only);
-	//	accessor delta_muAccessor(delta_mu, h, write_only);
-	//	accessor delta_sigmaAccessor(delta_sigma, h, write_only);
-	//	accessor thetaAccessor(theta, h, read_only);
-	//	accessor muAccessor(mu, h, read_only);
-	//	accessor sigmaAccessor(sigma, h, read_only);
-	//	const int maximum_binary_search_iterations = ceil(log2(workItems)) + 1;//+1 to avoid risk
-	//	//better a little slow than 5 hours debugging
-	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-	//		int low = 0, high = workItems - 1, first = -1 , last = -1;
-	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (thetaAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (thetaAccessor[mid] < thread_id)
-	//				low = mid + 1;
-	//			else {
-	//				first = mid;
-	//				high = mid - 1;
-	//			}
-	//		}
-	//	
-	//		low = 0, high = workItems - 1;
-	//		for(int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (thetaAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (thetaAccessor[mid] < thread_id)
-	//				low = mid + 1;
-
-	//			else {
-	//				last = mid;
-	//				low = mid + 1;
-	//			}
-	//		}
-	//		
-	//		if (first != -1) {
-	//			delta_thetaAccessor[thread_id] = last - first + 1;
-	//		}
-	//		
-	//	});
-
-	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-	//		int low = 0, high = workItems - 1, first = -1, last = -1;
-	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (muAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (muAccessor[mid] < thread_id)
-	//				low = mid + 1;
-	//			else {
-	//				first = mid;
-	//				high = mid - 1;
-	//			}
-	//		}
-
-	//		low = 0, high = workItems - 1;
-	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (muAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (muAccessor[mid] < thread_id)
-	//				low = mid + 1;
-
-	//			else {
-	//				last = mid;
-	//				low = mid + 1;
-	//			}
-	//		}
-
-	//		if (first != -1) {
-	//			delta_muAccessor[thread_id] = last - first + 1;
-	//		}
-
-	//	});
-
-	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-	//		int low = 0, high = workItems - 1, first = -1, last = -1;
-	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (sigmaAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (sigmaAccessor[mid] < thread_id)
-	//				low = mid + 1;
-	//			else {
-	//				first = mid;
-	//				high = mid - 1;
-	//			}
-	//		}
-
-	//		low = 0, high = workItems - 1;
-	//		for (int binary_search_counter = 0; binary_search_counter < maximum_binary_search_iterations; binary_search_counter++) {
-	//			int mid = (low + high) / 2;
-
-	//			if (sigmaAccessor[mid] > thread_id)
-	//				high = mid - 1;
-	//			else if (sigmaAccessor[mid] < thread_id)
-	//				low = mid + 1;
-
-	//			else {
-	//				last = mid;
-	//				low = mid + 1;
-	//			}
-	//		}
-
-	//		if (first != -1) {
-	//			delta_sigmaAccessor[thread_id] = last - first + 1;
-	//		}
-	//		});
-
-	//});
-	////sum the delta theta, delta mu, delta sigma, write to probabilityDomainSum
-	//return q.submit([&](handler& h) {
-	//	accessor probabilityDomainAccessor(probabilityDomainSum, h, write_only, no_init);
-	//	accessor delta_thetaAccessor(delta_theta, h, read_only);
-	//	accessor delta_muAccessor(delta_mu, h, read_only);
-	//	accessor delta_sigmaAccessor(delta_sigma, h, read_only);
-
-	//	h.parallel_for(range<1>(quantisation), [=](id<1> thread_id) {
-	//		auto theta = sycl::ext::oneapi::atomic_ref<
-	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-	//			sycl::ext::oneapi::memory_scope::device,
-	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[0]);
-	//		theta.fetch_add(delta_thetaAccessor[thread_id]);
-
-	//		auto mu = sycl::ext::oneapi::atomic_ref<
-	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-	//			sycl::ext::oneapi::memory_scope::device,
-	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[1]);
-	//		mu.fetch_add(delta_muAccessor[thread_id]);
-
-	//		auto sigma = sycl::ext::oneapi::atomic_ref<
-	//			uint32_t, sycl::ext::oneapi::memory_order::relaxed,
-	//			sycl::ext::oneapi::memory_scope::device,
-	//			sycl::access::address_space::global_space>(probabilityDomainAccessor[2]);
-	//		sigma.fetch_add(delta_sigmaAccessor[thread_id]);
-	//		});
-	//});
+	
 }
 
 
 void WigginsAlgorithm::iterate() {
 	using namespace cl::sycl;
 	std::vector<cl::sycl::event> events;
-	std::vector<cl::sycl::buffer<uint32_t, 1> > thetaHists;
-	std::vector<cl::sycl::buffer<uint32_t, 1> > muHists;
-	std::vector<cl::sycl::buffer<uint32_t, 1> > sigmaHists;
-	std::vector<cl::sycl::buffer<uint32_t, 1> > ProbabilityDist;
-	int quantisation = this->m_parameter.m_DiscretCountOfContinuiosSpace;
+	std::vector<cl::sycl::buffer<float, 1> > thetaHists;
+	std::vector<cl::sycl::buffer<float, 1> > muHists;
+	std::vector<cl::sycl::buffer<float, 1> > sigmaHists;
+	float mu_lower = this->m_parameter.m_volatility_mu.mean - this->m_parameter.m_volatility_mu.buffer_range_sigma_multiplier * this->m_parameter.m_volatility_mu.sd;
+	float mu_higher = this->m_parameter.m_volatility_mu.mean + this->m_parameter.m_volatility_mu.buffer_range_sigma_multiplier * this->m_parameter.m_volatility_mu.sd;
+	uint32_t DiscreteQuanta = this->m_parameter.m_DiscretCountOfContinuiosSpace;
 	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
-		thetaHists.emplace_back(quantisation);
-		muHists.emplace_back(quantisation);
-		sigmaHists.emplace_back(quantisation);
-		ProbabilityDist.emplace_back(3);
+		const int workItems = ceil(this->m_parameter.m_GraphUpdateIteration * this->m_QueuesAndData[deviceIndex].second.m_workload_fraction);
+
+		thetaHists.emplace_back(workItems);
+		muHists.emplace_back(workItems);
+		sigmaHists.emplace_back(workItems);
 		events.push_back(
 			exectue_wiggins_algorithm_on_device(
 				this->m_QueuesAndData[deviceIndex].first,
-				this->m_QueuesAndData[deviceIndex].second,
+				this->m_QueuesAndData[deviceIndex].second, workItems,
 				this->m_parameter, this->start,
-				this->m_returns, ProbabilityDist.back(),
+				this->m_returns,
 				thetaHists.back(), muHists.back(), sigmaHists.back()
 			)
 		);
 	}
 	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
-		host_accessor resultHostAccessor(thetaHists[deviceIndex], read_only)
-		;
+		const int workItems = ceil(this->m_parameter.m_GraphUpdateIteration * this->m_QueuesAndData[deviceIndex].second.m_workload_fraction);
+		host_accessor thetaList(thetaHists[deviceIndex], read_only);
+		for (int index = 0; index < workItems; index++) {
+			float theta = thetaList[index];
+			uint32_t thetaHistIndex = DistributionIndex(
+				this->m_parameter.m_volatility_theta.lower,
+				this->m_parameter.m_volatility_theta.upper,
+				DiscreteQuanta,
+				theta
+			);
+			this->m_response.theta.data[thetaHistIndex] += 1;
+			this->m_response.theta.sum += theta;
+		}
+
+		host_accessor muList(muHists[deviceIndex], read_only);
+		for (int index = 0; index < workItems; index++) {
+			float mu = muList[index];
+			uint32_t muHistIndex = DistributionIndex(
+				mu_lower,
+				mu_higher,
+				DiscreteQuanta,
+				mu
+			);
+			this->m_response.mu.data[muHistIndex] += 1;
+			this->m_response.mu.sum += mu;
+
+		}
+
+
+		host_accessor sigmaList(sigmaHists[deviceIndex], read_only);
+		for (int index = 0; index < workItems; index++) {
+			float sigma = sigmaList[index];
+			uint32_t thetaHistIndex = DistributionIndex(
+				this->m_parameter.m_volatility_sigma.lower,
+				this->m_parameter.m_volatility_sigma.upper,
+				this->m_parameter.m_DiscretCountOfContinuiosSpace,
+				sigma
+			);
+			this->m_response.theta.data[thetaHistIndex] += 1;
+			this->m_response.theta.sum += sigma;
+		}
 	}
 	this->iteration_count++;
 }

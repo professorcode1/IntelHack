@@ -178,7 +178,7 @@ void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockS
 	this->thirdScreen.StockName = StockSelected->first;
 	this->thirdScreen.StockSymbol = StockSelected->second;
 	
-	/*auto r = cpr::GetAsync(
+	auto r = cpr::GetAsync(
 		cpr::Url("https://alpha-vantage.p.rapidapi.com/query"),
 		cpr::Parameters{
 			{"function" , "TIME_SERIES_DAILY"},
@@ -191,8 +191,8 @@ void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockS
 			{	"X-RapidAPI-Key" , this->secondScreen.APIKey}
 		}
 	);
-	*/
-	auto r = cpr::GetAsync(cpr::Url("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo"));
+
+	//auto r = cpr::GetAsync(cpr::Url("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=demo"));
 	this->thirdScreen.APICallResponse = new cpr::AsyncResponse(std::move(r));
 	this->screenstate = ScreenState::Third;
 }
