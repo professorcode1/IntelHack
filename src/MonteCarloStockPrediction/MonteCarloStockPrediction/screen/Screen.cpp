@@ -359,11 +359,14 @@ void Screen::SixthScreenRender() {
 	float res = this->m_algorithmCompletionPercent();
 	std::cout << res << std::endl;
 	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
-	ImGui::End();
 	if (!this->m_algorithmCompleted()) {
-		this->m_algorithmIterate();
+		if (ImGui::Button("Next")) {
+			this->m_algorithmIterate();
+			this->updateAlgorithmProgressPage();
+		}
 	}
 		//this->screenstate = ScreenState::Seventh;
+	ImGui::End();
 }
 
 void LoadBitMapIntoOpenGLFormat(
