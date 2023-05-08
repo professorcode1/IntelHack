@@ -48,7 +48,25 @@ Application::Application() :screen{
     },
     [this]() {
         return this->HMC_Wiggins->get_response();
-    },    
+    },
+    [this](uint32_t number_of_days, uint32_t number_of_simulations) {
+        std::vector<float> StocksData;
+        int starting_date_offset = max(0, this->data.size() - this->parameter.m_NumberOfDaysToUse);
+        auto dataIterator = this->data.begin();
+        std::advance(dataIterator, starting_date_offset);
+        while (dataIterator != this->data.end()) {
+            StocksData.push_back(dataIterator->second);
+            dataIterator++;
+        }
+        const std::pair<float, float> MuAndSigma = this->SyclComputer.StockMuAndSigma(StocksData, 1 - (2.0 / 31.0));
+        return this->SyclComputer.predict(
+            MuAndSigma.first,
+            MuAndSigma.second,
+            StocksData.back(),
+            number_of_simulations,
+            number_of_days
+        );
+    },
         SCREEN_WIDTH, SCREEN_HEIGHT
 } {
     glfwSetErrorCallback(glfw_error_callback);

@@ -12,6 +12,7 @@
 #include "types.h"
 #include <algorithm>
 
+
 class WigginsAlgorithm
 {
 private:

@@ -17,6 +17,7 @@ Screen::Screen(
 	const std::function<float()>& algorithmCompletionPercent,
 	const std::function<bool()>& algorithmCompleted,
 	const std::function<AlgorithmResponse()>& algorithmResonse,
+	const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) >& predict,
 	int width, int height
 ) :
     screenstate{ ScreenState::First },
@@ -30,6 +31,7 @@ Screen::Screen(
 	m_algorithmCompletionPercent{ algorithmCompletionPercent },
 	m_algorithmCompleted{ algorithmCompleted },
 	m_algorithmResonse{ algorithmResonse },
+	m_predict{predict},
 	m_width{width},m_height{height}
 {
 	std::filesystem::path stockSymbolFileLocationObject =
@@ -226,16 +228,15 @@ void Screen::LoadFourthScreen(const cpr::Response& response) {
 	using namespace boost::gregorian;
 	const nlohmann::json responseJson = nlohmann::json::parse(response.text);
 	const nlohmann::json timeseries = responseJson.at("Time Series (Daily)");
-	std::map<date, float> internalStockData;
 	for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
 		date date(from_simple_string(time_quanta.key()));
 		const std::string valueString = time_quanta.value().at(this->secondScreen.StockMetricToUse);
 		const float value = std::stof(valueString);
 		this->m_populate_Data(date, value);
-		internalStockData.insert(std::make_pair(date, value));
+		this->internalStockData.insert(std::make_pair(date, value));
 	}
 	this->fourthScreen.preference.resize(this->m_AllDevice.size());
-	generateLargeStockPlot(std::move(internalStockData), this->thirdScreen.StockName);
+	generateLargeStockPlot(internalStockData, this->thirdScreen.StockName);
 	std::fill(this->fourthScreen.preference.begin(), this->fourthScreen.preference.end(), 0);
 	this->screenstate = ScreenState::Fourth;
 }
@@ -385,12 +386,110 @@ void Screen::SixthScreenRender() {
 }
 
 void Screen::LoadSeventhScreen() {
-
+	std::vector<std::vector<float> > prediction = this->m_predict(
+		this->sixthScreen.number_of_days_to_simulate,
+		this->sixthScreen.number_of_simulations_to_run
+	);
+	std::vector<float> StocksData;
+	int starting_date_offset = max(0, this->internalStockData.size() - 30);
+	auto dataIterator = this->internalStockData.begin();
+	std::advance(dataIterator, starting_date_offset);
+	while (dataIterator != this->internalStockData.end()) {
+		StocksData.push_back(dataIterator->second);
+		dataIterator++;
+	}
+	createThePredictionPlot(StocksData, prediction);
+	this->screenstate = ScreenState::Seventh;
 }
+
+
 void Screen::SeventhScreenRender() {
 
 }
+void Screen::createThePredictionPlot(
+	const std::vector<float>& StocksData,
+	const std::vector<std::vector<float> >& prediction
+) {
+	using namespace std;
+	RGBABitmapImageReference* canvasReference = CreateRGBABitmapImageReference();
+	ScatterPlotSettings* stocksSettings = GetDefaultScatterPlotSettings();
+	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
 
+	int days_before_prediction = StocksData.size();
+	int days_being_predicted = prediction[0].size();
+	int days = days_before_prediction + days_being_predicted;
+	int number_of_simulations = prediction.size();
+
+	std::vector<double>* xs, * ys, *xs_postsim;
+	xs = new std::vector<double>(days_before_prediction);
+	ys = new std::vector<double>(days_before_prediction);
+	xs_postsim = new std::vector<double>(days_being_predicted+1);
+	for (int i = 0; i < days_before_prediction; i++) {
+		xs->at(i) = i + 1;
+	}
+	for (int i = 0; i < days_before_prediction; i++) {
+		ys->at(i) = StocksData[i];
+	}
+	for (int stimulation = 0; stimulation <= number_of_simulations; stimulation++) {
+		xs_postsim->at(stimulation) = days_before_prediction  + stimulation;
+	}
+	float y_max = *std::max_element(StocksData.begin(), StocksData.end());
+
+	stocksSettings->scatterPlotSeries = new std::vector<ScatterPlotSeries*>(1 + number_of_simulations);
+	stocksSettings->scatterPlotSeries->at(0) = new ScatterPlotSeries();
+	stocksSettings->scatterPlotSeries->at(0)->xs = xs;
+	stocksSettings->scatterPlotSeries->at(0)->ys = ys;
+	stocksSettings->scatterPlotSeries->at(0)->linearInterpolation = true;
+	stocksSettings->scatterPlotSeries->at(0)->lineType = toVector(L"solid");
+	stocksSettings->scatterPlotSeries->at(0)->lineThickness = 3.0;
+	stocksSettings->scatterPlotSeries->at(0)->color = CreateRGBColor(0.0, 0.0, 0.0);
+	std::random_device rd;
+	std::mt19937 e2(rd());
+	std::uniform_real_distribution<> dist(0, 1);
+
+	for (int stimulation = 1; stimulation <= number_of_simulations; stimulation++) {
+		y_max = max(y_max, *std::max_element(prediction[stimulation-1].begin(), prediction[stimulation - 1].end()));
+		stocksSettings->scatterPlotSeries->at(stimulation) = new ScatterPlotSeries();
+		stocksSettings->scatterPlotSeries->at(stimulation)->xs = xs_postsim;
+		stocksSettings->scatterPlotSeries->at(stimulation)->ys = new std::vector<double>(number_of_simulations);
+		stocksSettings->scatterPlotSeries->at(stimulation)->ys->push_back(StocksData.back());
+		std::copy(
+			prediction[stimulation - 1].begin(),
+			prediction[stimulation - 1].end(),
+			stocksSettings->scatterPlotSeries->at(stimulation)->ys->begin());
+		stocksSettings->scatterPlotSeries->at(stimulation)->linearInterpolation = true;
+		stocksSettings->scatterPlotSeries->at(stimulation)->lineType = toVector(L"solid");
+		stocksSettings->scatterPlotSeries->at(stimulation)->lineThickness = 2.5;
+		float color_r = dist(e2);
+		float color_g = dist(e2);
+		float color_b = dist(e2);
+		stocksSettings->scatterPlotSeries->at(stimulation)->color = CreateRGBColor(color_r, color_g, color_b);
+	}
+
+	stocksSettings->autoBoundaries = false;
+	stocksSettings->xMin = 0;
+	stocksSettings->xMax = days + 3;
+	stocksSettings->yMin = 0;
+	stocksSettings->yMax = y_max * 1.2;
+	stocksSettings->yLabel = toVector(L"Stock Price");
+	stocksSettings->xLabel = toVector(L"Time");
+	std::wstring widestr = std::wstring(this->thirdScreen.StockName.begin(), this->thirdScreen.StockName.end());
+	const wchar_t* widecstr = widestr.c_str();
+
+	stocksSettings->title = toVector(widecstr);
+	stocksSettings->width = this->m_width;
+	stocksSettings->height = this->m_height;
+
+
+
+	bool success = DrawScatterPlotFromSettings(canvasReference, stocksSettings, errorMessage);
+	if (!success) {
+		throw std::runtime_error("could not draw plot");
+	}
+	this->largePredictedStocksPlot = new unsigned char[m_width * m_height * 4];
+	LoadBitMapIntoOpenGLFormat(this->largePredictedStocksPlot, m_width, m_height, canvasReference);
+
+}
 void LoadBitMapIntoOpenGLFormat(
 	unsigned char* largeStocksPlot,
 	uint32_t m_width, uint32_t m_height,
@@ -592,6 +691,9 @@ void Screen::DrawAlgorithm() {
 	}
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->algorithm_progress_screen);
 }
+void Screen::DrawPrediction() {
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largePredictedStocksPlot);
+}
 
 void Screen::Render() {
 	switch (this->screenstate)	{
@@ -613,6 +715,9 @@ void Screen::Render() {
 		case ScreenState::Sixth:
 			this->DrawAlgorithm();
 			return this->SixthScreenRender();
+		case ScreenState::Seventh:
+			this->DrawPrediction();
+			return this->SeventhScreenRender();
 		default:
 			std::cout << "Default hit in screen render function. Terminating" << std::endl;
 			throw std::runtime_error("Default hit in screen render function. Terminating");

@@ -8,6 +8,7 @@
 #include "Utils.h"
 #include "../Engine/types.h"
 #include <string>
+#include <random>
 #include <map>
 #include <iostream>
 #include <fstream>
@@ -41,7 +42,7 @@ struct FourthScreen {
 
 struct SixthScreen {
 	uint32_t number_of_days_to_simulate = 10;
-	uint32_t number_of_simulations_to_run = 100;
+	uint32_t number_of_simulations_to_run = 10;
 };
 enum class ScreenState {
 	First,
@@ -92,15 +93,23 @@ private:
 	std::function<float()> m_algorithmCompletionPercent;
 	std::function<bool()> m_algorithmCompleted;
 	std::function<AlgorithmResponse()> m_algorithmResonse;
+	std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > m_predict;
 
 	unsigned char* largeStocksPlot;
+	unsigned char* largePredictedStocksPlot;
 	ScatterPlotSettings* stocksSettings;
-	
+	std::map<boost::gregorian::date, float> internalStockData;
+
 	unsigned char* algorithm_progress_screen;
 	void generateAlgorithmProgressPage();
 	void updateAlgorithmProgressPage();
 	unsigned char* genereateHist(int width, int height, std::vector<float> data, float sum, const wchar_t* title);
 	int m_width, m_height;
+
+	void createThePredictionPlot(
+		const std::vector<float>& StocksData,
+		const std::vector<std::vector<float> >& prediction
+	);
 	
 public:
 	Screen(
@@ -113,6 +122,7 @@ public:
 		const std::function<float()> &algorithmCompletionPercent,
 		const std::function<bool()> &algorithmCompleted,
 		const std::function<AlgorithmResponse()> &algorithmResonse,
+		const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > &predict,
 		int width, int height
 	);
 	void Render();
@@ -120,5 +130,11 @@ public:
 	void DrawBackgrounImage();
 	void DrawStockGraph();
 	void DrawAlgorithm();
+	void DrawPrediction();
 };
 
+void LoadBitMapIntoOpenGLFormat(
+	unsigned char* largeStocksPlot,
+	uint32_t m_width, uint32_t m_height,
+	RGBABitmapImageReference* canvasReference
+);

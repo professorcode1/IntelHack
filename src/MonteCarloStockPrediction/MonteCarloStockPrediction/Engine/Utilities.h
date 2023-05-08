@@ -7,7 +7,7 @@
 std::vector<float> ReadCSVExtractFloatColumns(
 	std::string file,
 	std::string columnName,
-	const int limit = std::numeric_limits<int>::max()
+	const int limit = INT32_MAX
 );
 
 float geometric_mean(float a, float r, int n);

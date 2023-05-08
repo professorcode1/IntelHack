@@ -10,6 +10,7 @@
 #include "screen/Screen.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "vendor/stbi/stbi.h"
+#include "Engine/SYCLComputer.h"
 
 
 class Application
@@ -21,6 +22,7 @@ private:
 	std::map<std::string, int> deviceNameToWorkload;
 	AlgorithmParameter parameter;
 	WigginsAlgorithm* HMC_Wiggins;
+	SYCLComputer SyclComputer;
 
 public:
 	Application();
