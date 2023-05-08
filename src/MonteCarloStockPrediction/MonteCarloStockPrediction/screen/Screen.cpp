@@ -365,8 +365,30 @@ void Screen::SixthScreenRender() {
 			this->updateAlgorithmProgressPage();
 		}
 	}
+	else {
+		ImGui::Dummy(ImVec2(15.0, 15.0));
+		ImGui::Text("Number of Days to simulate");
+		ImGui::InputScalar("p1", ImGuiDataType_U32, &this->sixthScreen.number_of_days_to_simulate);
+
+		ImGui::Dummy(ImVec2(15.0, 15.0));
+		ImGui::Text("Number of simulations to run");
+		ImGui::InputScalar("p2", ImGuiDataType_U32, &this->sixthScreen.number_of_simulations_to_run);
+
+
+		ImGui::Dummy(ImVec2(15.0, 15.0));
+		if (ImGui::Button("Submit")) {
+			this->LoadSeventhScreen();
+		}
+	}
 		//this->screenstate = ScreenState::Seventh;
 	ImGui::End();
+}
+
+void Screen::LoadSeventhScreen() {
+
+}
+void Screen::SeventhScreenRender() {
+
 }
 
 void LoadBitMapIntoOpenGLFormat(

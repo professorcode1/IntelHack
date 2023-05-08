@@ -22,6 +22,9 @@ private:
 	std::vector<std::pair<sycl::queue, AlgorithmDeviceData>> m_QueuesAndData;
 	ProbabilityDomain start;
 	void BurnIn();
+	/*cl::sycl::event run_inference(
+		cl::sycl::queue& q, uint32_t number_of_simulations,
+		uint32_t number_of_days, cl::sycl::buffer<float, 2> data);*/
 
 public:
 	WigginsAlgorithm(
@@ -38,5 +41,5 @@ public:
 
 	AlgorithmResponse get_response();
 
-	void inference(uint32_t number_of_days);
+	//std::vector<std::vector<float> > inference(uint32_t number_of_days, uint32_t number_of_simulations);
 };

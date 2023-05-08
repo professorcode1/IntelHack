@@ -38,6 +38,11 @@ struct ThirdScreen {
 struct FourthScreen {
 	std::vector<int> preference;
 };
+
+struct SixthScreen {
+	uint32_t number_of_days_to_simulate = 10;
+	uint32_t number_of_simulations_to_run = 100;
+};
 enum class ScreenState {
 	First,
 	Second,
@@ -45,7 +50,7 @@ enum class ScreenState {
 	Fourth,
 	Fifth,
 	Sixth,
-	Seventh
+	Seventh,
 };
 class Screen
 {
@@ -54,6 +59,7 @@ private:
 	SecondScreen secondScreen;
 	ThirdScreen thirdScreen;
 	FourthScreen fourthScreen;
+	SixthScreen sixthScreen;
 		
 	ScreenState screenstate;
 	void FirstScreenRender();
@@ -67,6 +73,8 @@ private:
 	void FifthScreenRender();
 	void LoadSixthScreen();
 	void SixthScreenRender();
+	void LoadSeventhScreen();
+	void SeventhScreenRender();
 
 
 	void generateLargeStockPlot(

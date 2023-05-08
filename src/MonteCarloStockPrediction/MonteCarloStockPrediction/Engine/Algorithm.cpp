@@ -109,6 +109,8 @@ WigginsAlgorithm::WigginsAlgorithm(
 		this->BurnIn();
 }	
 
+
+
 static int sycl_strogest_cpu_selector(const sycl::device& d) {
 	return d.is_cpu();
 }
@@ -383,7 +385,29 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 	
 }
 
+/*cl::sycl::event WigginsAlgorithm::run_inference(
+	cl::sycl::queue& q, uint32_t number_of_simulations,
+	uint32_t number_of_days, cl::sycl::buffer<float, 2> data
+) {
+	using namespace cl::sycl;
+	q.submit([&](handler& h) {
+		h.parallel_for(range<1>(number_of_simulations), [=]() {
+						
+		});
+	});
+}
 
+std::vector<std::vector<float> > WigginsAlgorithm::inference(uint32_t number_of_days, uint32_t number_of_simulations) {
+	std::vector<std::vector<float> > result(number_of_simulations, std::vector<float>(number_of_days));
+	using namespace cl::sycl;
+	std::vector<buffer<float, 2> > inferences;
+	for (int deviceIndex = 0; deviceIndex < this->m_QueuesAndData.size(); deviceIndex++) {
+		const int workItems = ceil(this->m_parameter.m_GraphUpdateIteration * this->m_QueuesAndData[deviceIndex].second.m_workload_fraction);
+		
+	}
+
+}
+*/
 void WigginsAlgorithm::iterate() {
 	using namespace cl::sycl;
 	std::vector<cl::sycl::event> events;

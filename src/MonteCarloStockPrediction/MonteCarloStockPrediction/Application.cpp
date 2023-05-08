@@ -25,11 +25,15 @@ Application::Application() :screen{
     [this]() {
         std::vector<float> StocksData;
         int starting_date_offset = max(0, this->data.size() - this->parameter.m_NumberOfDaysToUse);
-        auto dataIterator = this->data.begin();
+        auto dataIterator = this->data.begin(), nextDataIterator = this->data.begin();
         std::advance(dataIterator, starting_date_offset);
-        while (dataIterator != this->data.end()) {
-            StocksData.push_back(dataIterator->second);
+        std::advance(nextDataIterator, starting_date_offset + 1);
+
+
+        while (nextDataIterator != this->data.end()) {
+            StocksData.push_back(log(nextDataIterator->second / dataIterator->second));
             dataIterator++;
+            nextDataIterator++;
         }
         this->HMC_Wiggins = new WigginsAlgorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
     }, 
