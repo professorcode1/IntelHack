@@ -89,8 +89,9 @@ private:
 	ScatterPlotSettings* stocksSettings;
 	
 	unsigned char* algorithm_progress_screen;
-
+	void generateAlgorithmProgressPage();
 	void updateAlgorithmProgressPage();
+	unsigned char* genereateHist(int width, int height, std::vector<float> data, float sum, const wchar_t* title);
 	int m_width, m_height;
 	
 public:
@@ -110,5 +111,6 @@ public:
 	unsigned char* intelBackgroundImageBuffer;
 	void DrawBackgrounImage();
 	void DrawStockGraph();
+	void DrawAlgorithm();
 };
 

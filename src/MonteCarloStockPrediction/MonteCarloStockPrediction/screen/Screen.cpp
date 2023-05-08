@@ -350,6 +350,7 @@ void Screen::FifthScreenRender() {
 
 void Screen::LoadSixthScreen() {
 	this->m_initialiseAlgorithm();
+	this->generateAlgorithmProgressPage();
 	this->screenstate = ScreenState::Sixth;
 }
 
@@ -359,10 +360,10 @@ void Screen::SixthScreenRender() {
 	std::cout << res << std::endl;
 	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
 	ImGui::End();
-	if (this->m_algorithmCompleted()) {
-		this->screenstate = ScreenState::Seventh;
+	if (!this->m_algorithmCompleted()) {
+		this->m_algorithmIterate();
 	}
-	this->m_algorithmIterate();
+		//this->screenstate = ScreenState::Seventh;
 }
 
 void LoadBitMapIntoOpenGLFormat(
@@ -441,51 +442,112 @@ void Screen::generateLargeStockPlot(
 
 }
 
-
-void Screen::DrawStockGraph() {
-	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largeStocksPlot);
+void Screen::generateAlgorithmProgressPage() {
+	this->algorithm_progress_screen = new unsigned char[m_width * m_height * 4];
+	std::fill_n(this->algorithm_progress_screen, m_width * m_height * 4, 255);
+	this->updateAlgorithmProgressPage();
 }
-void Screen::updateAlgorithmProgressPage() {
-	if (this->algorithm_progress_screen == nullptr) {
-		this->algorithm_progress_screen = new unsigned char[m_width * m_height * 4];
-	}
-	RGBABitmapImageReference* thetaCanvas;
-	RGBABitmapImageReference* muCanvas;
-	RGBABitmapImageReference* SigmaCanvas;
-	RGBABitmapImageReference* stocksCanvas;
-	BarPlotSettings* thetaSettings = GetDefaultBarPlotSettings();;
-	BarPlotSettings* muSettings = GetDefaultBarPlotSettings();;
-	BarPlotSettings* SigmaSettings = GetDefaultBarPlotSettings();;
-	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
 
-	const int small_width = 810, small_height = 362;
-
-	auto algorithmRes = this->m_algorithmResonse();
-
-
+unsigned char* Screen::genereateHist(int width, int height, std::vector<float> data, float sum, const wchar_t* title) {
+	RGBABitmapImageReference* thetaCanvas = CreateRGBABitmapImageReference();
+	BarPlotSettings* thetaSettings = GetDefaultBarPlotSettings();
 	thetaSettings->autoBoundaries = true;
 	thetaSettings->autoPadding = true;
-	thetaSettings->title = toVector(L"Theta Posterior Distribution");
+	thetaSettings->title = toVector(title);
 	thetaSettings->showGrid = false;
 	thetaSettings->yLabel = toVector(L"Probability");
 	thetaSettings->autoColor = true;
 	thetaSettings->grayscaleAutoColor = false;
-	thetaSettings->autoSpacing = true;
+	thetaSettings->autoSpacing = false;
 	thetaSettings->autoLabels = true;
-	/*settings.colors; */
-	thetaSettings->width = this->m_width;
-	thetaSettings->height = this->m_height;
+	thetaSettings->autoColor = true;
+
+	thetaSettings->width = width;
+	thetaSettings->height = height;
+
 	thetaSettings->barBorder = false;
 	thetaSettings->barPlotSeries = new std::vector<BarPlotSeries*>(1.0);
 	thetaSettings->barPlotSeries->at(0) = GetDefaultBarPlotSeriesSettings();
-	thetaSettings->barPlotSeries->at(0)->ys = new std::vector<double>(algorithmRes.theta.data.size());
-	for (int i = 0; i < algorithmRes.theta.data.size(); i++) {
-		thetaSettings->barPlotSeries->at(0)->ys->at(i) = algorithmRes.theta.data[i];
+	thetaSettings->barPlotSeries->at(0)->ys = new std::vector<double>(data.size());
+	for (int i = 0; i < data.size(); i++) {
+		thetaSettings->barPlotSeries->at(0)->ys->at(i) = data[i] / sum;
 	}
-	//this->stocksSettings->height = small_height;
-	//this->stocksSettings->width = small_width;
-	//bool success = DrawScatterPlotFromSettings(stocksCanvas, this->stocksSettings, errorMessage);
+	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
+	bool success = DrawBarPlotFromSettings(thetaCanvas, thetaSettings, errorMessage);
+	if (!success) {
+		throw std::runtime_error("Theta setting not correct");
+	}
+	unsigned char* result = new unsigned char[width * height * 4];
+	LoadBitMapIntoOpenGLFormat(
+		result,
+		width,
+		height,
+		thetaCanvas
+	);
+	return result;
+}
 
+void Screen::updateAlgorithmProgressPage() {
+	const int small_width = 810, small_height = 362;
+
+	auto algorithmRes = this->m_algorithmResonse();
+
+	unsigned char* theta = genereateHist(small_width, small_height, algorithmRes.theta.data, algorithmRes.theta.sum, L"Theta Posterior Distribution");
+	unsigned char* mu = genereateHist(small_width, small_height, algorithmRes.mu.data, algorithmRes.mu.sum, L"Mu Posterior Distribution");
+	unsigned char* sigma = genereateHist(small_width, small_height, algorithmRes.sigma.data, algorithmRes.sigma.sum, L"Sigma Posterior Distribution");
+	unsigned char* stock = new unsigned char[small_width * small_height * 4];
+	this->stocksSettings->height = small_height;
+	this->stocksSettings->width = small_width;
+	RGBABitmapImageReference* canvasReference;
+	canvasReference = CreateRGBABitmapImageReference();
+	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
+
+	bool success = DrawScatterPlotFromSettings(canvasReference, this->stocksSettings, errorMessage);
+	if (!success) {
+		throw std::runtime_error("could not draw plot");
+	}
+	LoadBitMapIntoOpenGLFormat(stock, small_width, small_height, canvasReference);
+
+	for (int x = 0; x < small_width; x++) {
+		for (int y = 0; y < small_height; y++) {
+			int position = x + y * small_width;
+			int theta_x = 100 + x;
+			int theta_y = 100 + y;
+			int theta_pos = theta_x + theta_y * m_width;
+			int mu_x = 1010 + x;
+			int mu_y = 100 + y;
+			int mu_pos = mu_x + mu_y * m_width;
+			int sigma_x = 100 + x;
+			int sigma_y = 562 + y;
+			int sigma_pos = sigma_x + sigma_y * m_width;
+			int stock_x = 1010 + x;
+			int stock_y = 562 + y;
+			int stock_pos = stock_x + stock_y * m_width;
+			
+			this->algorithm_progress_screen[4 * theta_pos] = theta[4 * position];
+			this->algorithm_progress_screen[4 * theta_pos + 1] = theta[4 * position + 1];
+			this->algorithm_progress_screen[4 * theta_pos + 2] = theta[4 * position + 2];
+			this->algorithm_progress_screen[4 * theta_pos + 3] = theta[4 * position + 3];
+			this->algorithm_progress_screen[4 * mu_pos + 0] = mu[4 * position + 0];
+			this->algorithm_progress_screen[4 * mu_pos + 1] = mu[4 * position + 1];
+			this->algorithm_progress_screen[4 * mu_pos + 2] = mu[4 * position + 2];
+			this->algorithm_progress_screen[4 * mu_pos + 3] = mu[4 * position + 3];
+			this->algorithm_progress_screen[4 * sigma_pos + 0] = sigma[4 * position + 0];
+			this->algorithm_progress_screen[4 * sigma_pos + 1] = sigma[4 * position + 1];
+			this->algorithm_progress_screen[4 * sigma_pos + 2] = sigma[4 * position + 2];
+			this->algorithm_progress_screen[4 * sigma_pos + 3] = sigma[4 * position + 3];
+			this->algorithm_progress_screen[4 * stock_pos + 0] = stock[4 * position + 0];
+			this->algorithm_progress_screen[4 * stock_pos + 1] = stock[4 * position + 1];
+			this->algorithm_progress_screen[4 * stock_pos + 2] = stock[4 * position + 2];
+			this->algorithm_progress_screen[4 * stock_pos + 3] = stock[4 * position + 3];
+
+		}
+	}
+
+	delete[]theta;
+	delete[]mu;
+	delete[]sigma;
+	delete[]stock;
 }
 
 
@@ -496,7 +558,15 @@ void Screen::DrawBackgrounImage() {
 	}
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->intelBackgroundImageBuffer);
 }
-
+void Screen::DrawStockGraph() {
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largeStocksPlot);
+}
+void Screen::DrawAlgorithm() {
+	if (this->algorithm_progress_screen == nullptr) {
+		return;
+	}
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->algorithm_progress_screen);
+}
 
 void Screen::Render() {
 	switch (this->screenstate)	{
@@ -516,7 +586,7 @@ void Screen::Render() {
 			this->DrawStockGraph();
 			return this->FifthScreenRender();
 		case ScreenState::Sixth:
-			this->DrawStockGraph();
+			this->DrawAlgorithm();
 			return this->SixthScreenRender();
 		default:
 			std::cout << "Default hit in screen render function. Terminating" << std::endl;
