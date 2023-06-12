@@ -154,10 +154,6 @@ Application::Application() :screen{
         this->parameter.m_volatility_sigma.testval = 0.05f;
         this->parameter.m_volatility_sigma.guassian_step_sd = (0.02 - 0.001) / (4.0 * 6.0);
 
-        this->parameter.m_volatility.dt = 1.0f;
-        this->parameter.m_volatility.testval = 1.0f;
-        this->parameter.m_volatility.dw_lower = 0.0f;
-        this->parameter.m_volatility.dw_upper = 0.1f;
     }
 }
 

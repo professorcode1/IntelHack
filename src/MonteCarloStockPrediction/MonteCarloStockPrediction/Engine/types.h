@@ -43,18 +43,11 @@ typedef struct NormalParameter {
 	DiscreteProbabilityDistribution generateBuffer(uint32_t DiscretCountOfContinuiosSpace) const;
 } NormalParameter;
 
-typedef struct EulerMaruyama {
-	float dt;
-	float testval;
-	float dw_lower;
-	float dw_upper;
-} EulerMaruyama;
 
 typedef struct AlgorithmParameter {
 	UniformParameters m_volatility_theta;
 	NormalParameter m_volatility_mu;
 	UniformParameters m_volatility_sigma;
-	EulerMaruyama m_volatility;
 	uint32_t m_MCMCIteration;
 	uint32_t m_GraphUpdateIteration;
 	uint32_t m_NumberOfDaysToUse;

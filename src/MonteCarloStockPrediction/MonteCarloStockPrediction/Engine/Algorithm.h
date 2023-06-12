@@ -11,8 +11,8 @@
 #include "ProbabilityDomain.h"
 #include "types.h"
 #include <algorithm>
-
-
+#define LOG_2_PI_DIVIDED_BY_2 0.9189385332f
+#define MINUS_ONE_UPON_SQRT_2_PI -0.3989422804f
 class WigginsAlgorithm
 {
 private:

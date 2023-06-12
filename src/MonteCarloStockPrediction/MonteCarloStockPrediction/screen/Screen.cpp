@@ -305,13 +305,14 @@ void Screen::FifthScreenRender() {
 	ImGui::InputScalar("test value #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.testval);
 	ImGui::InputScalar("guassian step standard deviation #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.guassian_step_sd);
 
+	/*
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Volatility Parameters");
 	ImGui::InputScalar("time delta", ImGuiDataType_Float, &parameter.m_volatility.dt);
 	ImGui::InputScalar("brownian Motion delta lower bound", ImGuiDataType_Float, &parameter.m_volatility.dw_lower);
 	ImGui::InputScalar("brownian Motion delta upper bound", ImGuiDataType_Float, &parameter.m_volatility.dw_upper);
 	ImGui::InputScalar("test value #4", ImGuiDataType_Float, &parameter.m_volatility.testval);
-
+	*/
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::Text("Number of iterations");
 	ImGui::InputScalar("p1", ImGuiDataType_U32, &parameter.m_MCMCIteration);
@@ -358,7 +359,6 @@ void Screen::LoadSixthScreen() {
 void Screen::SixthScreenRender() {
 	ImGui::Begin("6th screen");
 	float res = this->m_algorithmCompletionPercent();
-	std::cout << res << std::endl;
 	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
 	if (!this->m_algorithmCompleted()) {
 		if (ImGui::Button("Next")) {

@@ -119,26 +119,34 @@ static int sycl_strogest_cpu_selector(const sycl::device& d) {
 float potential_energy_U(
 	const ProbabilityDomain domain,
 	int timeSeriesLength,
-	oneapi::dpl::uniform_real_distribution<float> &dW,
 	oneapi::dpl::minstd_rand &engine,
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 ) {
 	float U = 0;
-	float x0 = returns[0];
-	float y_time_minus_one;
-	float y_time = x0;
-	for (int time = 1; time < timeSeriesLength; time++) {
-		float x_time = returns[time];
-		float dw = dW(engine);
-		y_time_minus_one = y_time;
-		y_time =
-			y_time_minus_one +
-			domain.theta * (domain.mu - y_time_minus_one) +
-			domain.sigma * dw;
-		float p_time = evaluate_normal(x_time, 0, exp(y_time));
-		U += p_time;
+	float volatility = domain.mu;
+	oneapi::dpl::normal_distribution<float> Normal_of_zero_n_sigma(0.0, domain.sigma);
+	for (int i = 0; i < timeSeriesLength; i++) {
+		float v =
+			volatility +
+			domain.theta * (domain.mu - volatility) +
+			Normal_of_zero_n_sigma(engine);
+		volatility = v;
+		U +=
+			v +
+			LOG_2_PI_DIVIDED_BY_2 +
+			0.5 * pow(returns[i] / exp(v), 2.0);
 	}
-	return -1 * U;
+	return U;
+}
+
+float evaluate_del_v_by_del_sigma(float sigma, float r) {
+	float result = MINUS_ONE_UPON_SQRT_2_PI;
+	float sigma_square = sigma * sigma;
+	float r_square = r * r;
+	result *= sigma_square - r_square;
+	result *= exp(-0.5 * (r_square / sigma_square));
+	result /= sigma_square * sigma_square;
+	return result;
 }
 
 float potential_energy_U(
@@ -146,7 +154,6 @@ float potential_energy_U(
 	ProbabilityDomain &differential,
 	const AlgorithmParameter& parameters,
 	int timeSeriesLength,
-	oneapi::dpl::uniform_real_distribution<float>& dW,
 	oneapi::dpl::minstd_rand& engine,
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 ) {
@@ -154,44 +161,40 @@ float potential_energy_U(
 	differential.theta = 0;
 	differential.mu = 0;
 	differential.sigma = 0;
-	float x0 = parameters.m_volatility.testval;
-	float y_time_minus_one;
-	float y_time = x0;
-	for (int time = 1; time < timeSeriesLength; time++) {
-		float x_time = returns[time];
-		float dw = dW(engine);
-		y_time_minus_one = y_time;
-		y_time =
-			y_time_minus_one +
-			domain.theta * (domain.mu - y_time_minus_one) +
-			domain.sigma * dw;
-		float p_time = evaluate_normal(x_time, 0, exp(y_time));
-		float del_p_time_del_y_time =
-			(p_time * x_time * x_time) /
-			exp(2 * y_time);
-
-		differential.theta += del_p_time_del_y_time * (domain.mu - y_time_minus_one);
-		differential.mu += del_p_time_del_y_time * domain.theta;
-		differential.sigma += del_p_time_del_y_time * dw ;
-		U += p_time;
+	float volatility = domain.mu;
+	oneapi::dpl::normal_distribution<float> Normal_of_zero_n_sigma(0.0, domain.sigma);
+	for (int i = 0; i < timeSeriesLength; i++) {
+		float normal_zero_sigma_value = Normal_of_zero_n_sigma(engine);
+		float del_v_del_theta = (domain.mu - volatility);
+		float del_v_del_mu = domain.theta;
+		float del_v_del_sigma = evaluate_del_v_by_del_sigma(domain.sigma, normal_zero_sigma_value);
+		float v =
+			volatility +
+			domain.theta * del_v_del_theta +
+			normal_zero_sigma_value;
+		volatility = v;
+		float res_i_upon_e_v_squred = returns[i] / exp(v); res_i_upon_e_v_squred *= res_i_upon_e_v_squred;
+		differential.theta += del_v_del_theta * (1 - res_i_upon_e_v_squred);
+		differential.mu += del_v_del_mu * (1 - res_i_upon_e_v_squred);
+		differential.sigma += del_v_del_sigma * (1 - res_i_upon_e_v_squred);
+		U +=
+			v +
+			LOG_2_PI_DIVIDED_BY_2 +
+			0.5 * res_i_upon_e_v_squred;
 	}
-	differential.theta *= -1;
-	differential.mu *= -1;
-	differential.sigma *= -1;
-	return -1 * U;
+	return U;
 }
 
 ProbabilityDomain potential_energy_gradient(
 	const ProbabilityDomain domain,
 	int tsLength,
 	const AlgorithmParameter& parameters,
-	oneapi::dpl::uniform_real_distribution<float>& dW,
 	oneapi::dpl::minstd_rand& engine,
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 ) {
 	ProbabilityDomain gradient;
 	potential_energy_U(
-		domain, gradient, parameters,  tsLength, dW, engine, returns
+		domain, gradient, parameters,  tsLength,  engine, returns
 	);
 	return gradient;
 }
@@ -201,8 +204,6 @@ void clamp(float left, float& x, float right) {
 }
 
 bool hmc_sample(
-	float epsilon,
-	int leapfrog,
 	const ProbabilityDomain current_q,
 	ProbabilityDomain &new_domain,
 	const AlgorithmParameter& parameters,
@@ -211,31 +212,32 @@ bool hmc_sample(
 	oneapi::dpl::normal_distribution<float> & sigma_normal,
 	oneapi::dpl::uniform_real_distribution<float> &zero_one_uniform,
 	int tsLength,
-	oneapi::dpl::uniform_real_distribution<float>& dW,
 	oneapi::dpl::minstd_rand& engine,
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 ) {
+	float epsilon = parameters.m_epsilon;
+	int leapfrog = parameters.m_leapfrog;
 	ProbabilityDomain q = current_q;
 	ProbabilityDomain p{ theta_normal(engine) , mu_normal(engine), sigma_normal(engine) };
 	ProbabilityDomain current_p = p;
 	float mu_lower = parameters.m_volatility_mu.mean - parameters.m_volatility_mu.buffer_range_sigma_multiplier * parameters.m_volatility_mu.sd;
 	float mu_higher = parameters.m_volatility_mu.mean + parameters.m_volatility_mu.buffer_range_sigma_multiplier * parameters.m_volatility_mu.sd;
 
-	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns) * 0.5);
+	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, engine, returns) * 0.5);
 	for (int i = 0; i < leapfrog - 1; i++) {
 		q = q + epsilon * p;
-		clamp(parameters.m_volatility_theta.lower, q.theta, parameters.m_volatility_theta.upper);
-		clamp(mu_lower, q.mu, mu_higher);
-		clamp(parameters.m_volatility_sigma.lower, q.sigma, parameters.m_volatility_sigma.upper);
+		//clamp(parameters.m_volatility_theta.lower, q.theta, parameters.m_volatility_theta.upper);
+		//clamp(mu_lower, q.mu, mu_higher);
+		//clamp(parameters.m_volatility_sigma.lower, q.sigma, parameters.m_volatility_sigma.upper);
 		
-		p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns));
+		p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, engine, returns));
 	}
-	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, dW, engine, returns) * 2.0f);
-	float current_U = potential_energy_U(current_q, tsLength, dW, engine, returns);
+	p = p + (-1.0 * epsilon * potential_energy_gradient(q, tsLength, parameters, engine, returns) * 2.0f);
+	float current_U = potential_energy_U(current_q, tsLength, engine, returns);
 	ProbabilityDomain current_K_Domain = current_p * current_p * 0.5;
 	float current_K = current_K_Domain.mu + current_K_Domain.sigma + current_K_Domain.theta;
 	ProbabilityDomain propsed_K_domain = p * p * 0.5;
-	float proposed_U = potential_energy_U(q, tsLength, dW, engine, returns);
+	float proposed_U = potential_energy_U(q, tsLength, engine, returns);
 	float proposed_K = propsed_K_domain.mu + propsed_K_domain.sigma + propsed_K_domain.theta;
 	float energy_change = current_U - proposed_U + current_K - proposed_K;
 	if (zero_one_uniform(engine) < exp(energy_change)) {
@@ -254,8 +256,6 @@ void WigginsAlgorithm::BurnIn() {
 	queue q(sycl_strogest_cpu_selector);
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
 	buffer<float, 1> result(range<1>{3});
-	std::cout << this->m_parameter.m_volatility.dw_lower << "\n" <<
-		this->m_parameter.m_volatility.dw_upper << std::endl;
 	q.submit([&, this](handler &h) {
 		const AlgorithmParameter parameter = this->m_parameter;
 		accessor returnsAccessor(m_returns, h, read_only);
@@ -268,11 +268,9 @@ void WigginsAlgorithm::BurnIn() {
 			oneapi::dpl::normal_distribution<float> mu_normal(0.0f, parameter.m_volatility_mu.guassian_step_sd);
 			oneapi::dpl::normal_distribution<float> sigma_normal(0.0f, parameter.m_volatility_sigma.guassian_step_sd);
 			oneapi::dpl::uniform_real_distribution<float> zero_one_uniform(0.0f, 1.0f);
-			oneapi::dpl::uniform_real_distribution<float> dW(parameter.m_volatility.dw_lower, parameter.m_volatility.dw_upper);
 			ProbabilityDomain oldDomain{start}, nextDomain;
 			for (int i = 0; i < parameter.m_BurnIn; i++) {
 				hmc_sample(
-					parameter.m_epsilon, parameter.m_leapfrog,
 					oldDomain,
 					nextDomain,
 					parameter,
@@ -281,7 +279,6 @@ void WigginsAlgorithm::BurnIn() {
 					sigma_normal,
 					zero_one_uniform,
 					tsLength,
-					dW,
 					engine,
 					returnsAccessor
 				);
@@ -296,10 +293,6 @@ void WigginsAlgorithm::BurnIn() {
 	this->start.theta = resultHostAccessor[0];
 	this->start.mu = resultHostAccessor[1];
 	this->start.sigma = resultHostAccessor[2];
-	std::cout << "Burn In Done, result " << std::endl;
-	std::cout << this->start.theta << std::endl;
-	std::cout << this->start.mu << std::endl;
-	std::cout << this->start.sigma << std::endl;
 }
 
 bool WigginsAlgorithm::is_completed() {
@@ -361,10 +354,8 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 			oneapi::dpl::normal_distribution<float> mu_normal(0.0f, parameter.m_volatility_mu.guassian_step_sd);
 			oneapi::dpl::normal_distribution<float> sigma_normal(0.0f, parameter.m_volatility_sigma.guassian_step_sd);
 			oneapi::dpl::uniform_real_distribution<float> zero_one_uniform(0.0f, 1.0f);
-			oneapi::dpl::uniform_real_distribution<float> dW(parameter.m_volatility.dw_lower, parameter.m_volatility.dw_upper);
 			ProbabilityDomain oldDomain{ start }, nextDomain;
 			hmc_sample(
-				parameter.m_epsilon, parameter.m_leapfrog,
 				oldDomain,
 				nextDomain,
 				parameter,
@@ -373,7 +364,6 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 				sigma_normal,
 				zero_one_uniform,
 				tsLength,
-				dW,
 				engine,
 				returnsAccessor
 			);
