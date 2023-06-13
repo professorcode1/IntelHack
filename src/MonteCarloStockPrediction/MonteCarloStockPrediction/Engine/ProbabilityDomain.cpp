@@ -37,3 +37,4 @@ ProbabilityDomain operator+(const ProbabilityDomain& lhs, const ProbabilityDomai
 //extern SYCL_EXTERNAL float sum(const ProbabilityDomain &domain) {
 //	return domain.theta + domain.mu + domain.sigma;
 //}
+

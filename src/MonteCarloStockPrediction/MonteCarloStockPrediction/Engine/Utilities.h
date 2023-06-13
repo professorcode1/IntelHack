@@ -3,6 +3,8 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 std::vector<float> ReadCSVExtractFloatColumns(
 	std::string file,
@@ -11,3 +13,5 @@ std::vector<float> ReadCSVExtractFloatColumns(
 );
 
 float geometric_mean(float a, float r, int n);
+
+float evaluate_normal(float x, float mean, float sd);

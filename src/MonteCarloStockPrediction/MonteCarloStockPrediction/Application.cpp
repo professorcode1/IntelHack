@@ -35,7 +35,7 @@ Application::Application() :screen{
             dataIterator++;
             nextDataIterator++;
         }
-        this->HMC_Wiggins = new WigginsAlgorithm(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
+        this->HMC_Wiggins = new HMC(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
     }, 
     [this]() {
         this->HMC_Wiggins->iterate();

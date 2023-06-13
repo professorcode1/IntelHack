@@ -11,6 +11,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "vendor/stbi/stbi.h"
 #include "Engine/SYCLComputer.h"
+#include "Engine/HMC.h"
 
 
 class Application

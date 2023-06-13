@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <CL/sycl.hpp>
-
+#include "Utilities.h"
 typedef struct DiscreteProbabilityDistribution {
 	std::vector<float> data;
 	float min;
@@ -90,3 +90,4 @@ typedef struct AlgorithmDeviceData {
 		float workload_fraction
 	) :theta{ algorithmRes.theta }, mu{ algorithmRes.mu }, sigma{ algorithmRes.sigma }, m_workload_fraction{ workload_fraction } {};
 } AlgorithmDeviceData;
+

@@ -90,6 +90,8 @@
   <ItemGroup>
     <ClCompile Include="Engine\Algorithm.cpp" />
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Engine\HMC.cpp" />
+    <ClCompile Include="Engine\types.cpp" />
     <ClCompile Include="MonteCarloStockPrediction.cpp" />
     <ClCompile Include="Engine\SYCLComputer.cpp" />
     <ClCompile Include="Engine\Utilities.cpp" />
@@ -113,6 +115,7 @@
     <ClInclude Include="Engine\Utilities.h" />
     <ClInclude Include="Engine\SYCLComputer.h" />
     <ClInclude Include="Engine\ProbabilityDomain.h" />
+    <ClInclude Include="Engine\HMC.h" />
     <ClInclude Include="screen\Utils.h" />
     <ClInclude Include="screen\Screen.h" />
     <ClInclude Include="vendor\stbi\stbi.h" />

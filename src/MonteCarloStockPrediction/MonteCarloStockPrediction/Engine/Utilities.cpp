@@ -42,3 +42,14 @@ float geometric_mean(float a, float r, int n) {
 	float den = r - 1;
 	return num / den;
 }
+
+float evaluate_normal(float x, float mean, float sd) {
+	x = x - mean;
+	x /= sd;
+	x *= x;
+	x *= -0.5f;
+	x = exp(x);
+	x /= sd;
+	x /= sqrtf(2 * M_PI);
+	return x;
+}
