@@ -18,6 +18,7 @@ Screen::Screen(
 	const std::function<bool()>& algorithmCompleted,
 	const std::function<AlgorithmResponse()>& algorithmResonse,
 	const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) >& predict,
+	const std::function<bool()>& algorithmIsRunning,
 	int width, int height
 ) :
     screenstate{ ScreenState::First },
@@ -32,6 +33,7 @@ Screen::Screen(
 	m_algorithmCompleted{ algorithmCompleted },
 	m_algorithmResonse{ algorithmResonse },
 	m_predict{predict},
+	m_algorithmIsRunning{ algorithmIsRunning },
 	m_width{width},m_height{height}
 {
 	std::filesystem::path stockSymbolFileLocationObject =
@@ -344,6 +346,7 @@ void Screen::FifthScreenRender() {
 
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	if (ImGui::Button("Submit")) {
+		this->DrawBurnInPleaseWaitImage();
 		this->LoadSixthScreen();
 	}
 	
@@ -352,6 +355,7 @@ void Screen::FifthScreenRender() {
 
 void Screen::LoadSixthScreen() {
 	this->m_initialiseAlgorithm();
+	while (this->m_algorithmIsRunning()) {};
 	this->generateAlgorithmProgressPage();
 	this->screenstate = ScreenState::Sixth;
 }
@@ -359,11 +363,19 @@ void Screen::LoadSixthScreen() {
 void Screen::SixthScreenRender() {
 	ImGui::Begin("6th screen");
 	float res = this->m_algorithmCompletionPercent();
-	ImGui::Text("Algorithm Completion Percnet :: %f %", res);
+	ImGui::Text("Algorithm Completion Percent :: %f %", res);
 	if (!this->m_algorithmCompleted()) {
-		if (ImGui::Button("Next")) {
-			this->m_algorithmIterate();
-			this->updateAlgorithmProgressPage();
+		if (this->m_algorithmIsRunning()) {
+			ImGui::Dummy(ImVec2(5.0, 5.0));
+			ImSpinner::SpinnerRainbow("#spinner", 40.0f, 1.0f, ImColor(0, 0, 255), 3.0);
+			ImGui::Dummy(ImVec2(25.0, 25.0));
+			ImGui::Text("Please wait, the algorithm is running");
+		}
+		else {
+			if (ImGui::Button("Next")) {
+				this->m_algorithmIterate();
+				this->updateAlgorithmProgressPage();
+			}
 		}
 	}
 	else {
@@ -682,9 +694,19 @@ void Screen::DrawBackgrounImage() {
 	}
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->intelBackgroundImageBuffer);
 }
+
+void Screen::DrawBurnInPleaseWaitImage() {
+	if (this->pleaseWaitBurnInImageBuffer == nullptr) {
+		std::cout << "nullptr image" << std::endl;
+		return;
+	}
+	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->pleaseWaitBurnInImageBuffer);
+}
+
 void Screen::DrawStockGraph() {
 	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, this->largeStocksPlot);
 }
+
 void Screen::DrawAlgorithm() {
 	if (this->algorithm_progress_screen == nullptr) {
 		return;

@@ -67,6 +67,9 @@ Application::Application() :screen{
             number_of_days
         );
     },
+    [this]() {
+        return this->HMC_Wiggins->IsProcessing();
+    },
         SCREEN_WIDTH, SCREEN_HEIGHT
 } {
     glfwSetErrorCallback(glfw_error_callback);
@@ -118,6 +121,8 @@ Application::Application() :screen{
     
     std::filesystem::path intelImageFileLocationObject =
         std::filesystem::current_path() / "assets" / "oneAPI.jpg";
+    std::filesystem::path pleaseWaitForBurnInFileLocationObject = 
+        std::filesystem::current_path() / "assets" / "pleaseWaitForBurnIn.jpg";
     std::string imageFileLoc = intelImageFileLocationObject.string();
     if (file_exists(imageFileLoc)) {
         stbi_set_flip_vertically_on_load(1);
@@ -125,6 +130,12 @@ Application::Application() :screen{
 
         this->screen.intelBackgroundImageBuffer = 
             stbi_load(imageFileLoc.c_str(), &m_Width, &m_Height, &m_BPP, 4);
+
+        this->screen.pleaseWaitBurnInImageBuffer =
+            stbi_load(
+                pleaseWaitForBurnInFileLocationObject.string().c_str(),
+                &m_Width, &m_Height, &m_BPP, 4
+            );
 
     }
     glEnable(GL_BLEND);

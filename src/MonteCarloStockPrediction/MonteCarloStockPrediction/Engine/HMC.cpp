@@ -60,7 +60,7 @@ bool hmc_sample(
 
 }
 
-void HMC::BurnIn() {
+void HMC::BurnInInternal() {
 	using namespace cl::sycl;
 	queue q(sycl_strogest_cpu_selector);
 	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -157,7 +157,7 @@ cl::sycl::event exectue_wiggins_algorithm_on_device(
 
 }
 
-void HMC::iterate() {
+void HMC::iterateInternal() {
 	using namespace cl::sycl;
 	std::vector<cl::sycl::event> events;
 	std::vector<cl::sycl::buffer<float, 1> > thetaHists;
@@ -226,4 +226,11 @@ void HMC::iterate() {
 		}
 	}
 	this->iteration_count++;
+}
+
+void HMC::BurnIn() {
+	this->processing = std::async(std::launch::async, &HMC::BurnInInternal, this);
+}
+void HMC::iterate() {
+	this->processing = std::async(std::launch::async, &HMC::iterateInternal, this);
 }

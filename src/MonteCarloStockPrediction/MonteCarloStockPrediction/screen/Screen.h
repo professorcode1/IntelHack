@@ -94,6 +94,7 @@ private:
 	std::function<bool()> m_algorithmCompleted;
 	std::function<AlgorithmResponse()> m_algorithmResonse;
 	std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > m_predict;
+	std::function<bool()> m_algorithmIsRunning;
 
 	unsigned char* largeStocksPlot;
 	unsigned char* largePredictedStocksPlot;
@@ -123,14 +124,17 @@ public:
 		const std::function<bool()> &algorithmCompleted,
 		const std::function<AlgorithmResponse()> &algorithmResonse,
 		const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > &predict,
+		const std::function<bool()> &algorithmIsRunning,
 		int width, int height
 	);
 	void Render();
 	unsigned char* intelBackgroundImageBuffer;
+	unsigned char* pleaseWaitBurnInImageBuffer;
 	void DrawBackgrounImage();
 	void DrawStockGraph();
 	void DrawAlgorithm();
 	void DrawPrediction();
+	void DrawBurnInPleaseWaitImage();
 };
 
 void LoadBitMapIntoOpenGLFormat(

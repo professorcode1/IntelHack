@@ -1,18 +1,18 @@
 #pragma once
 #include "Algorithm.h"
-class HMC:public WigginsAlgorithm
+class MetropolisHasting:public WigginsAlgorithm
 {
 private:
-	void BurnInInternal();
 	void BurnIn() override;
 public:
-	HMC(
+	MetropolisHasting(
 		const AlgorithmParameter& parameter,
 		const std::vector<float>& stocksdata,
 		const std::map<std::string, int>& deviceNameToWorkload
 	);
 
-	void iterateInternal();
+
 	void iterate() override;
+
 };
 

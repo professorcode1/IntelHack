@@ -150,6 +150,10 @@ ProbabilityDomain potential_energy_gradient(
 	return gradient;
 }
 
+bool WigginsAlgorithm::IsProcessing() {
+	return this->processing.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+}
+
 bool WigginsAlgorithm::is_completed() {
 	const int number_of_iteration = 
 		this->m_parameter.m_MCMCIteration / this->m_parameter.m_GraphUpdateIteration

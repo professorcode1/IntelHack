@@ -12,12 +12,15 @@
 #include "types.h"
 #include <algorithm>
 #include "Utilities.h"
+#include <future>
+#include <thread>
 #define LOG_2_PI_DIVIDED_BY_2 0.9189385332f
 #define MINUS_ONE_UPON_SQRT_2_PI -0.3989422804f
 class WigginsAlgorithm
 {
 private:
 protected:
+	std::future<void> processing;
 	const AlgorithmParameter m_parameter;
 	AlgorithmResponse m_response;
 	int iteration_count;
@@ -45,6 +48,7 @@ public:
 	AlgorithmResponse get_response() ;
 
 	//std::vector<std::vector<float> > inference(uint32_t number_of_days, uint32_t number_of_simulations);
+	bool IsProcessing();
 };
 
 extern SYCL_EXTERNAL float potential_energy_U(
