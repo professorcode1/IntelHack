@@ -36,7 +36,6 @@ Application::Application() :screen{
     },
     SCREEN_WIDTH, SCREEN_HEIGHT
 } {
-    std::cout << "Hello??" << std::endl;
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
         std::cout << "glfwInit failed. Terminating program" << std::endl;

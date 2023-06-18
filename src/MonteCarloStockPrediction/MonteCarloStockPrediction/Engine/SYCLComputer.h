@@ -7,6 +7,7 @@
 #include <stdio.h> 
 #include <random>
 #include "Utilities.h"
+#include <oneapi/dpl/random>
 
 
 static auto exception_handler = [](sycl::exception_list e_list) {
@@ -148,17 +149,6 @@ private:
 		const float variance = IndexWeightedVarianceCalculation(VarianceCalculationBuffer, base, mean);
 		return std::make_pair(mean, variance);
 	}
-	std::vector<float> normalRandomNumber(int count) {
-		/*I was not able to get the OneAPI DLP Random library to work. Hence I had to use CPU for now*/
-		static std::default_random_engine generator;
-		std::normal_distribution<double> distribution;
-		std::vector<float> res(count);
-
-		for (int i = 0; i < count; i++) {
-			res[i] = distribution(generator);
-		}
-		return res;
-	}
 public:
 	SYCLComputer() :
 		q(sycl::gpu_selector_v, exception_handler),
@@ -182,35 +172,37 @@ public:
 		using namespace sycl;
 		vector<vector<float>> result(number_of_simulations, vector<float>(number_of_days));
 		buffer<float, 2> gpuData(range<2>{number_of_simulations, number_of_days});
+		unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
 		const float drift = mu - sigma * sigma / 2;
 		{
-			auto normals = normalRandomNumber(number_of_simulations);
-			buffer<float, 1> normalsGpu(normals);
 			this->q.submit([&](handler& h) {
 				accessor resultAccessor(gpuData, h, read_write);
-				accessor normalsAccessor(normalsGpu, h, read_only);
+
+
 				h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
-					const float return__ = drift + normalsAccessor[thread_id] * sigma;
+					oneapi::dpl::minstd_rand engine(seed, thread_id);
+					oneapi::dpl::normal_distribution<float> normal(0.0f, 1.0f);
+					const float return__ = drift + normal(engine) * sigma;
 					resultAccessor[thread_id][0] = starting_price * std::exp(return__);
 					});
 				}).wait();
 
 		}
 
-		for (int day = 1; day < number_of_days; day++) {
-			auto normals = normalRandomNumber(number_of_simulations);
-			buffer<float, 1> normalsGpu(normals);
 			this->q.submit([&](handler& h) {
 
 				accessor resultAccessor(gpuData, h, read_write);
-				accessor normalsAccessor(normalsGpu, h, read_only);
 				h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
-					const float return__ = drift + normalsAccessor[thread_id] * sigma;
-					const float last_price = resultAccessor[thread_id][day - 1];
-					resultAccessor[thread_id][day] = last_price * std::exp(return__);
-					});
+					for (int day = 1; day < number_of_days; day++) {
+						int global_thread_id = number_of_simulations * thread_id + day;
+						oneapi::dpl::minstd_rand engine(seed, global_thread_id);
+						oneapi::dpl::normal_distribution<float> normal(0.0f, 1.0f);
+						const float return__ = drift + normal(engine) * sigma;
+						const float last_price = resultAccessor[thread_id][day - 1];
+						resultAccessor[thread_id][day] = last_price * std::exp(return__);
+					}
+				});
 				}).wait();
-		}
 		host_accessor resultHostAccessor(gpuData, read_only);
 		for (int sim = 0; sim < number_of_simulations; sim++) {
 			for (int day = 0; day < number_of_days; day++) {
