@@ -15,40 +15,7 @@ Application::Application() :screen{
         this->data.insert(std::make_pair(date, value));
         //std::cout << boost::gregorian::to_simple_string(this->data.begin()->first) << std::endl;;
     },
-    cl::sycl::device::get_devices(),
-    [this](std::string deviceName, int workload) {
-        this->deviceNameToWorkload.insert(std::make_pair(deviceName, workload));
-    },
-    [this]()->AlgorithmParameter& {
-        return this->parameter;
-    },
-    [this]() {
-        std::vector<float> StocksData;
-        int starting_date_offset = max(0, this->data.size() - this->parameter.m_NumberOfDaysToUse);
-        auto dataIterator = this->data.begin(), nextDataIterator = this->data.begin();
-        std::advance(dataIterator, starting_date_offset);
-        std::advance(nextDataIterator, starting_date_offset + 1);
 
-
-        while (nextDataIterator != this->data.end()) {
-            StocksData.push_back(log(nextDataIterator->second / dataIterator->second));
-            dataIterator++;
-            nextDataIterator++;
-        }
-        this->HMC_Wiggins = new MetropolisHasting(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
-    }, 
-    [this]() {
-        this->HMC_Wiggins->iterate();
-    },
-    [this]() {
-        return this->HMC_Wiggins->percent_of_completion();
-    },
-    [this]() {
-        return this->HMC_Wiggins->is_completed();
-    },
-    [this]() {
-        return this->HMC_Wiggins->get_response();
-    },
     [this](uint32_t number_of_days, uint32_t number_of_simulations) {
         std::vector<float> StocksData;
         int starting_date_offset = max(0, this->data.size() - this->parameter.m_NumberOfDaysToUse);
@@ -67,10 +34,7 @@ Application::Application() :screen{
             number_of_days
         );
     },
-    [this]() {
-        return this->HMC_Wiggins->IsProcessing();
-    },
-        SCREEN_WIDTH, SCREEN_HEIGHT
+    SCREEN_WIDTH, SCREEN_HEIGHT
 } {
     std::cout << "Hello??" << std::endl;
     glfwSetErrorCallback(glfw_error_callback);

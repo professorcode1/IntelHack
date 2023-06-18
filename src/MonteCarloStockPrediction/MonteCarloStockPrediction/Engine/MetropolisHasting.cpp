@@ -121,7 +121,7 @@ static cl::sycl::event exectue_wiggins_algorithm_on_device(
 }
 
 void MetropolisHasting::iterateInternal() {
-	/*
+	
 	using namespace cl::sycl;
 	std::vector<cl::sycl::event> events;
 	std::vector<cl::sycl::buffer<float, 1> > thetaHists;
@@ -189,7 +189,6 @@ void MetropolisHasting::iterateInternal() {
 			this->m_response.theta.sum += sigma;
 		}
 	}
-	*/
 	this->iteration_count++;
 }
 

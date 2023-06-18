@@ -48,9 +48,8 @@ enum class ScreenState {
 	First,
 	Second,
 	Third,
-	Fourth,
-	Fifth,
 	Sixth,
+	SixPointFifth,
 	Seventh,
 };
 class Screen
@@ -68,12 +67,10 @@ private:
 	void SecondScreenRender();
 	void LoadThirdScreen(std::map<std::string, std::string>::iterator StockSelected);
 	void ThirdScreenRender();
-	void LoadFourthScreen(const cpr::Response& response);
-	void FourthScreenRender();
-	void LoadFifthScreen();
-	void FifthScreenRender();
-	void LoadSixthScreen();
+	void LoadSixthScreen(const cpr::Response& response);
 	void SixthScreenRender();
+	void LoadSixPointFifth();
+	void SixPointFifthRender();
 	void LoadSeventhScreen();
 	void SeventhScreenRender();
 
@@ -84,26 +81,15 @@ private:
 	);
 
 	std::function<void(boost::posix_time::ptime, float)> m_populate_Data;
-	const std::vector<cl::sycl::device> m_AllDevice;
-	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
-	std::function<AlgorithmParameter& ()> m_parameterReference;
-	std::function<void()> m_initialiseAlgorithm;
-
-	std::function<void()> m_algorithmIterate;
-	std::function<float()> m_algorithmCompletionPercent;
-	std::function<bool()> m_algorithmCompleted;
-	std::function<AlgorithmResponse()> m_algorithmResonse;
 	std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > m_predict;
-	std::function<bool()> m_algorithmIsRunning;
-
+	
 	unsigned char* largeStocksPlot;
 	unsigned char* largePredictedStocksPlot;
 	ScatterPlotSettings* stocksSettings;
 	std::map<boost::posix_time::ptime, float> internalStockData;
+	std::future<void> prediction_async;
 
 	unsigned char* algorithm_progress_screen;
-	void generateAlgorithmProgressPage();
-	void updateAlgorithmProgressPage();
 	unsigned char* genereateHist(int width, int height, std::vector<float> data, float sum, const wchar_t* title);
 	int m_width, m_height;
 
@@ -111,20 +97,11 @@ private:
 		const std::vector<float>& StocksData,
 		const std::vector<std::vector<float> >& prediction
 	);
-	
+	void predict();
 public:
 	Screen(
 		const std::function<void(boost::posix_time::ptime, float)> &populate_Data,
-		const std::vector<cl::sycl::device> &AllDevice,
-		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
-		const std::function<AlgorithmParameter& ()> &parameterReference,
-		const std::function<void()> initialiseAlgorithm,
-		const std::function<void()> &algorithmIterate,
-		const std::function<float()> &algorithmCompletionPercent,
-		const std::function<bool()> &algorithmCompleted,
-		const std::function<AlgorithmResponse()> &algorithmResonse,
 		const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) > &predict,
-		const std::function<bool()> &algorithmIsRunning,
 		int width, int height
 	);
 	void Render();

@@ -9,31 +9,13 @@ char const* const FirstScreen::StockMetrics[5] = {
 
 Screen::Screen(
 	const std::function<void(boost::posix_time::ptime, float)>& populate_Data,
-	const std::vector<cl::sycl::device>& AllDevice,
-	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
-	const std::function<AlgorithmParameter& ()>& parameterReference,
-	const std::function<void()> initialiseAlgorithm,
-	const std::function<void()>& algorithmIterate,
-	const std::function<float()>& algorithmCompletionPercent,
-	const std::function<bool()>& algorithmCompleted,
-	const std::function<AlgorithmResponse()>& algorithmResonse,
 	const std::function<std::vector<std::vector<float> >(uint32_t, uint32_t) >& predict,
-	const std::function<bool()>& algorithmIsRunning,
 	int width, int height
 ) :
     screenstate{ ScreenState::First },
 	m_populate_Data{ populate_Data },
-	m_AllDevice{AllDevice},
-	m_populate_DeviceWorkloadPreference{ populate_DeviceWorkloadPreference },
-	m_parameterReference{ parameterReference },
-	m_initialiseAlgorithm{ initialiseAlgorithm },
 	intelBackgroundImageBuffer{nullptr},
-	m_algorithmIterate{ algorithmIterate },
-	m_algorithmCompletionPercent{ algorithmCompletionPercent },
-	m_algorithmCompleted{ algorithmCompleted },
-	m_algorithmResonse{ algorithmResonse },
 	m_predict{predict},
-	m_algorithmIsRunning{ algorithmIsRunning },
 	m_width{width},m_height{height}
 {
 	std::filesystem::path stockSymbolFileLocationObject =
@@ -48,7 +30,8 @@ Screen::Screen(
 
 void Screen::FirstScreenRender() {
 	static bool show_demo_window = true;
-    ImGui::Begin("Select File Location");                          
+	ImGui::Begin("API Keys");                          
+    /*
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::InputTextWithHint(
 		"Symbol",
@@ -56,6 +39,7 @@ void Screen::FirstScreenRender() {
 		this->firstScreen.NameToSymbolCSVFile, 
 		500
 	);
+	*/
 	ImGui::Dummy(ImVec2(15.0, 15.0));
 	ImGui::InputTextWithHint(
 		"API Keys",
@@ -214,7 +198,7 @@ void Screen::ThirdScreenRender() {
 			ImGui::End();
 		}
 		else {
-			this->LoadFourthScreen(respose);
+			this->LoadSixthScreen(respose);
 		}
 	}
 	else {
@@ -227,7 +211,7 @@ void Screen::ThirdScreenRender() {
 	}
 }
 
-void Screen::LoadFourthScreen(const cpr::Response& response) {
+void Screen::LoadSixthScreen(const cpr::Response& response) {
 	const nlohmann::json responseJson = nlohmann::json::parse(response.text);
 	const nlohmann::json timeseries = responseJson.at("Time Series (1min)");
 	for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
@@ -237,131 +221,13 @@ void Screen::LoadFourthScreen(const cpr::Response& response) {
 		this->m_populate_Data(datetime, value);
 		this->internalStockData.insert(std::make_pair(datetime, value));
 	}
-	this->fourthScreen.preference.resize(this->m_AllDevice.size());
 	generateLargeStockPlot(internalStockData, this->thirdScreen.StockName);
-	std::fill(this->fourthScreen.preference.begin(), this->fourthScreen.preference.end(), 0);
-	this->screenstate = ScreenState::Fourth;
-}
-
-void Screen::FourthScreenRender() {
-	ImGui::Begin("Device Workload");
-	const int deviceCount = this->m_AllDevice.size();
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	std::set<std::string> printed;
-	for (int deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
-		std::string DeviceName = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::name>();
-		if (printed.find(DeviceName) != printed.end()) {
-			continue;
-		}
-		printed.insert(DeviceName);
-		ImGui::Text(DeviceName.c_str());
-		const int max_compute_units = this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::max_compute_units>();
-		ImGui::Text("Compute Units :: %d", max_compute_units);
-		const std::string sliderName = std::string("Device #") + std::to_string(deviceIndex);
-		ImGui::SliderInt(sliderName.c_str(), this->fourthScreen.preference.data() + deviceIndex, 0, 100);
-		ImGui::Dummy(ImVec2(15.0, 15.0));
-	}
-	if (ImGui::Button("Submit")) {
-		this->LoadFifthScreen();
-	}
-
-	ImGui::End();
-}
-
-void Screen::LoadFifthScreen() {
-	const int deviceCount = this->m_AllDevice.size();
-	for (int deviceIndex = 0; deviceIndex < deviceCount; deviceIndex++) {
-		this->m_populate_DeviceWorkloadPreference(
-			this->m_AllDevice[deviceIndex].get_info<cl::sycl::info::device::name>(),
-			this->fourthScreen.preference[deviceIndex]
-		);
-	}
-	this->screenstate = ScreenState::Fifth;
-}
-void Screen::FifthScreenRender() {
-	static bool inputs_step = true;
-	const float f32_one = 1.0f;
-	AlgorithmParameter& parameter = this->m_parameterReference();
-	ImGui::Begin("Fifth Screen");
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Volatility Theta Parameters");
-	ImGui::InputScalar("lower #1", ImGuiDataType_Float, &parameter.m_volatility_theta.lower);
-	ImGui::InputScalar("upper #1", ImGuiDataType_Float, &parameter.m_volatility_theta.upper);
-	ImGui::InputScalar("test value #1", ImGuiDataType_Float, &parameter.m_volatility_theta.testval);
-	ImGui::InputScalar("guassian step standard deviation #1", ImGuiDataType_Float, &parameter.m_volatility_theta.guassian_step_sd);
-	
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Volatility Mu Parameters");
-	ImGui::InputScalar("mean", ImGuiDataType_Float, &parameter.m_volatility_mu.mean);
-	ImGui::InputScalar("standard deviation", ImGuiDataType_Float, &parameter.m_volatility_mu.sd);
-	ImGui::InputScalar("test value #2", ImGuiDataType_Float, &parameter.m_volatility_mu.testval);
-	ImGui::InputScalar("guassian step standard deviation #2", ImGuiDataType_Float, &parameter.m_volatility_mu.guassian_step_sd);
-	ImGui::InputScalar("Buffer range sigma multiplier", ImGuiDataType_U32, &parameter.m_volatility_mu.buffer_range_sigma_multiplier);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Volatility Sigma Parameters");
-	ImGui::InputScalar("lower #2", ImGuiDataType_Float, &parameter.m_volatility_sigma.lower);
-	ImGui::InputScalar("upper #2", ImGuiDataType_Float, &parameter.m_volatility_sigma.upper);
-	ImGui::InputScalar("test value #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.testval);
-	ImGui::InputScalar("guassian step standard deviation #3", ImGuiDataType_Float, &parameter.m_volatility_sigma.guassian_step_sd);
-
-	/*
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Volatility Parameters");
-	ImGui::InputScalar("time delta", ImGuiDataType_Float, &parameter.m_volatility.dt);
-	ImGui::InputScalar("brownian Motion delta lower bound", ImGuiDataType_Float, &parameter.m_volatility.dw_lower);
-	ImGui::InputScalar("brownian Motion delta upper bound", ImGuiDataType_Float, &parameter.m_volatility.dw_upper);
-	ImGui::InputScalar("test value #4", ImGuiDataType_Float, &parameter.m_volatility.testval);
-	*/
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Number of iterations");
-	ImGui::InputScalar("p1", ImGuiDataType_U32, &parameter.m_MCMCIteration);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Number of iterations after which graphs update");
-	ImGui::InputScalar("p2", ImGuiDataType_U32, &parameter.m_GraphUpdateIteration);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Number of days to use for stock analysis");
-	ImGui::InputScalar("p3", ImGuiDataType_U32, &parameter.m_NumberOfDaysToUse);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Burn In");
-	ImGui::InputScalar("p4", ImGuiDataType_U32, &parameter.m_BurnIn);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("Number of discrete intervals to break down continuous spaces");
-	ImGui::InputScalar("p5", ImGuiDataType_U32, &parameter.m_DiscretCountOfContinuiosSpace);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("HMC Leapfrog");
-	ImGui::InputScalar("p6", ImGuiDataType_U32, &parameter.m_leapfrog);
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	ImGui::Text("HMC Epsilon");
-	ImGui::InputScalar("p7", ImGuiDataType_Float, &parameter.m_epsilon);
-
-
-	ImGui::Dummy(ImVec2(15.0, 15.0));
-	if (ImGui::Button("Submit")) {
-		this->DrawBurnInPleaseWaitImage();
-		this->LoadSixthScreen();
-	}
-	
-	ImGui::End();
-}
-
-void Screen::LoadSixthScreen() {
-	this->m_initialiseAlgorithm();
-	//while (this->m_algorithmIsRunning()) {};
-	this->generateAlgorithmProgressPage();
 	this->screenstate = ScreenState::Sixth;
 }
 
 void Screen::SixthScreenRender() {
-	ImGui::Begin("6th screen");
+	ImGui::Begin("Prediciton parameters");
+	/*
 	float res = this->m_algorithmCompletionPercent();
 	ImGui::Text("Algorithm Completion Percent :: %f %", res);
 	if (!this->m_algorithmCompleted()) {
@@ -378,7 +244,7 @@ void Screen::SixthScreenRender() {
 			}
 		}
 	}
-	else {
+	else {*/
 		ImGui::Dummy(ImVec2(15.0, 15.0));
 		ImGui::Text("Number of Days to simulate");
 		ImGui::InputScalar("p1", ImGuiDataType_U32, &this->sixthScreen.number_of_days_to_simulate);
@@ -390,18 +256,16 @@ void Screen::SixthScreenRender() {
 
 		ImGui::Dummy(ImVec2(15.0, 15.0));
 		if (ImGui::Button("Submit")) {
-			this->LoadSeventhScreen();
+			this->LoadSixPointFifth();
 		}
-	}
-		//this->screenstate = ScreenState::Seventh;
-	ImGui::End();
+	//}
+		ImGui::End();
 }
-
-void Screen::LoadSeventhScreen() {
-	std::vector<std::vector<float> > prediction = this->m_predict(
+void Screen::predict() {
+	const std::vector<std::vector<float> > prediction= this->m_predict(
 		this->sixthScreen.number_of_days_to_simulate,
 		this->sixthScreen.number_of_simulations_to_run
-	);
+		);
 	std::vector<float> StocksData;
 	int starting_date_offset = max(0, this->internalStockData.size() - 30);
 	auto dataIterator = this->internalStockData.begin();
@@ -411,6 +275,32 @@ void Screen::LoadSeventhScreen() {
 		dataIterator++;
 	}
 	createThePredictionPlot(StocksData, prediction);
+}
+void Screen::LoadSixPointFifth() {
+	this->prediction_async = std::async(
+		std::launch::async, 
+		&Screen::predict,
+		this
+		);
+	this->screenstate = ScreenState::SixPointFifth;
+}
+void Screen::SixPointFifthRender() {
+	if (this->prediction_async.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+
+		ImGui::Begin("Prediciton parameters");
+		ImGui::Dummy(ImVec2(5.0, 5.0));
+		ImSpinner::SpinnerRainbow("#spinner", 40.0f, 1.0f, ImColor(0, 0, 255), 3.0);
+		ImGui::Dummy(ImVec2(25.0, 25.0));
+		ImGui::Text("Please wait, the algorithm is running");
+		ImGui::End();
+	}
+	else {
+		this->LoadSeventhScreen();
+	}
+}
+
+void Screen::LoadSeventhScreen() {
+
 	this->screenstate = ScreenState::Seventh;
 }
 
@@ -443,7 +333,7 @@ void Screen::createThePredictionPlot(
 		ys->at(i) = StocksData[i];
 	}
 	for (int stimulation = 0; stimulation <= number_of_simulations; stimulation++) {
-		xs_postsim->at(stimulation) = days_before_prediction  + stimulation;
+		xs_postsim->at(number_of_simulations - stimulation) = days_before_prediction  + stimulation;
 	}
 	float y_max = *std::max_element(StocksData.begin(), StocksData.end());
 
@@ -578,11 +468,6 @@ void Screen::generateLargeStockPlot(
 
 }
 
-void Screen::generateAlgorithmProgressPage() {
-	this->algorithm_progress_screen = new unsigned char[m_width * m_height * 4];
-	std::fill_n(this->algorithm_progress_screen, m_width * m_height * 4, 255);
-	this->updateAlgorithmProgressPage();
-}
 
 unsigned char* Screen::genereateHist(int width, int height, std::vector<float> data, float sum, const wchar_t* title) {
 	RGBABitmapImageReference* thetaCanvas = CreateRGBABitmapImageReference();
@@ -621,69 +506,6 @@ unsigned char* Screen::genereateHist(int width, int height, std::vector<float> d
 		thetaCanvas
 	);
 	return result;
-}
-
-void Screen::updateAlgorithmProgressPage() {
-	const int small_width = 810, small_height = 362;
-
-	auto algorithmRes = this->m_algorithmResonse();
-
-	unsigned char* theta = genereateHist(small_width, small_height, algorithmRes.theta.data, algorithmRes.theta.sum, L"Theta Posterior Distribution");
-	unsigned char* mu = genereateHist(small_width, small_height, algorithmRes.mu.data, algorithmRes.mu.sum, L"Mu Posterior Distribution");
-	unsigned char* sigma = genereateHist(small_width, small_height, algorithmRes.sigma.data, algorithmRes.sigma.sum, L"Sigma Posterior Distribution");
-	unsigned char* stock = new unsigned char[small_width * small_height * 4];
-	this->stocksSettings->height = small_height;
-	this->stocksSettings->width = small_width;
-	RGBABitmapImageReference* canvasReference;
-	canvasReference = CreateRGBABitmapImageReference();
-	StringReference* errorMessage = CreateStringReference(toVector(L"Large Stock Plot Generation Failed"));
-
-	bool success = DrawScatterPlotFromSettings(canvasReference, this->stocksSettings, errorMessage);
-	if (!success) {
-		throw std::runtime_error("could not draw plot");
-	}
-	LoadBitMapIntoOpenGLFormat(stock, small_width, small_height, canvasReference);
-
-	for (int x = 0; x < small_width; x++) {
-		for (int y = 0; y < small_height; y++) {
-			int position = x + y * small_width;
-			int theta_x = 100 + x;
-			int theta_y = 100 + y;
-			int theta_pos = theta_x + theta_y * m_width;
-			int mu_x = 1010 + x;
-			int mu_y = 100 + y;
-			int mu_pos = mu_x + mu_y * m_width;
-			int sigma_x = 100 + x;
-			int sigma_y = 562 + y;
-			int sigma_pos = sigma_x + sigma_y * m_width;
-			int stock_x = 1010 + x;
-			int stock_y = 562 + y;
-			int stock_pos = stock_x + stock_y * m_width;
-			
-			this->algorithm_progress_screen[4 * theta_pos] = theta[4 * position];
-			this->algorithm_progress_screen[4 * theta_pos + 1] = theta[4 * position + 1];
-			this->algorithm_progress_screen[4 * theta_pos + 2] = theta[4 * position + 2];
-			this->algorithm_progress_screen[4 * theta_pos + 3] = theta[4 * position + 3];
-			this->algorithm_progress_screen[4 * mu_pos + 0] = mu[4 * position + 0];
-			this->algorithm_progress_screen[4 * mu_pos + 1] = mu[4 * position + 1];
-			this->algorithm_progress_screen[4 * mu_pos + 2] = mu[4 * position + 2];
-			this->algorithm_progress_screen[4 * mu_pos + 3] = mu[4 * position + 3];
-			this->algorithm_progress_screen[4 * sigma_pos + 0] = sigma[4 * position + 0];
-			this->algorithm_progress_screen[4 * sigma_pos + 1] = sigma[4 * position + 1];
-			this->algorithm_progress_screen[4 * sigma_pos + 2] = sigma[4 * position + 2];
-			this->algorithm_progress_screen[4 * sigma_pos + 3] = sigma[4 * position + 3];
-			this->algorithm_progress_screen[4 * stock_pos + 0] = stock[4 * position + 0];
-			this->algorithm_progress_screen[4 * stock_pos + 1] = stock[4 * position + 1];
-			this->algorithm_progress_screen[4 * stock_pos + 2] = stock[4 * position + 2];
-			this->algorithm_progress_screen[4 * stock_pos + 3] = stock[4 * position + 3];
-
-		}
-	}
-
-	delete[]theta;
-	delete[]mu;
-	delete[]sigma;
-	delete[]stock;
 }
 
 
@@ -728,15 +550,12 @@ void Screen::Render() {
 		case ScreenState::Third:
 			this->DrawBackgrounImage();
 			return this->ThirdScreenRender();
-		case ScreenState::Fourth:
-			this->DrawStockGraph();
-			return this->FourthScreenRender();
-		case ScreenState::Fifth:
-			this->DrawStockGraph();
-			return this->FifthScreenRender();
 		case ScreenState::Sixth:
-			this->DrawAlgorithm();
+			this->DrawStockGraph();
 			return this->SixthScreenRender();
+		case ScreenState::SixPointFifth:
+			this->DrawStockGraph();
+			return this->SixPointFifthRender();
 		case ScreenState::Seventh:
 			this->DrawPrediction();
 			return this->SeventhScreenRender();
