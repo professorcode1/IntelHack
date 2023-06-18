@@ -53,3 +53,19 @@ float evaluate_normal(float x, float mean, float sd) {
 	x /= sqrtf(2 * M_PI);
 	return x;
 }
+
+
+void DumpToFileFloatVector(
+	std::vector<float> data
+) {
+	std::ofstream file("returns dump.csv");
+	if (file.is_open()) {
+		for (const auto d : data) {
+			file << d<<std::endl;
+		}
+		file.close();
+	}
+	else {
+		throw std::runtime_error("Cannot open file to dump returns");
+	}
+}

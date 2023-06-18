@@ -15,3 +15,8 @@ std::vector<float> ReadCSVExtractFloatColumns(
 float geometric_mean(float a, float r, int n);
 
 float evaluate_normal(float x, float mean, float sd);
+
+
+void DumpToFileFloatVector(
+	std::vector<float> data
+);

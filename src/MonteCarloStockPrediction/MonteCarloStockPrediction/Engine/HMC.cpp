@@ -104,17 +104,8 @@ void HMC::BurnInInternal() {
 		this->start.sigma = resultHostAccessor[2];
 }
 
-uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float value) {
-	float delx = (upper - lower) / divisions;
-	uint32_t res = floor((value - lower) / delx);
-	if (res == divisions) {
-		return res - 1;
-	}
-	return res;
-}
 
-
-cl::sycl::event exectue_wiggins_algorithm_on_device(
+static cl::sycl::event exectue_wiggins_algorithm_on_device(
 	cl::sycl::queue& q, const AlgorithmDeviceData& device_data, int workItems,
 	const AlgorithmParameter& parameter, const ProbabilityDomain& start,
 	cl::sycl::buffer<float, 1> returns, cl::sycl::buffer<float, 1>& theta,

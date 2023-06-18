@@ -8,7 +8,7 @@ char const* const FirstScreen::StockMetrics[5] = {
 };
 
 Screen::Screen(
-	const std::function<void(boost::gregorian::date, float)>& populate_Data,
+	const std::function<void(boost::posix_time::ptime, float)>& populate_Data,
 	const std::vector<cl::sycl::device>& AllDevice,
 	const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 	const std::function<AlgorithmParameter& ()>& parameterReference,
@@ -185,7 +185,8 @@ void Screen::LoadThirdScreen(std::map<std::string, std::string>::iterator StockS
 	auto r = cpr::GetAsync(
 		cpr::Url("https://alpha-vantage.p.rapidapi.com/query"),
 		cpr::Parameters{
-			{"function" , "TIME_SERIES_DAILY"},
+			{"function" , "TIME_SERIES_INTRADAY"},
+			{"interval", "1min" },
 			{"symbol" , this->thirdScreen.StockSymbol },
 			{"datatype" , "json"},
 			{"outputsize" , "compact"}
@@ -227,15 +228,14 @@ void Screen::ThirdScreenRender() {
 }
 
 void Screen::LoadFourthScreen(const cpr::Response& response) {
-	using namespace boost::gregorian;
 	const nlohmann::json responseJson = nlohmann::json::parse(response.text);
-	const nlohmann::json timeseries = responseJson.at("Time Series (Daily)");
+	const nlohmann::json timeseries = responseJson.at("Time Series (1min)");
 	for (auto time_quanta = timeseries.begin(); time_quanta != timeseries.end(); time_quanta++) {
-		date date(from_simple_string(time_quanta.key()));
+		boost::posix_time::ptime datetime(boost::posix_time::time_from_string(time_quanta.key()));
 		const std::string valueString = time_quanta.value().at(this->secondScreen.StockMetricToUse);
 		const float value = std::stof(valueString);
-		this->m_populate_Data(date, value);
-		this->internalStockData.insert(std::make_pair(date, value));
+		this->m_populate_Data(datetime, value);
+		this->internalStockData.insert(std::make_pair(datetime, value));
 	}
 	this->fourthScreen.preference.resize(this->m_AllDevice.size());
 	generateLargeStockPlot(internalStockData, this->thirdScreen.StockName);
@@ -355,7 +355,7 @@ void Screen::FifthScreenRender() {
 
 void Screen::LoadSixthScreen() {
 	this->m_initialiseAlgorithm();
-	while (this->m_algorithmIsRunning()) {};
+	//while (this->m_algorithmIsRunning()) {};
 	this->generateAlgorithmProgressPage();
 	this->screenstate = ScreenState::Sixth;
 }
@@ -466,8 +466,8 @@ void Screen::createThePredictionPlot(
 		stocksSettings->scatterPlotSeries->at(stimulation)->ys = new std::vector<double>(number_of_simulations);
 		stocksSettings->scatterPlotSeries->at(stimulation)->ys->push_back(StocksData.back());
 		std::copy(
-			prediction[stimulation - 1].begin(),
-			prediction[stimulation - 1].end(),
+			prediction[stimulation - 1].rbegin(),
+			prediction[stimulation - 1].rend(),
 			stocksSettings->scatterPlotSeries->at(stimulation)->ys->begin());
 		stocksSettings->scatterPlotSeries->at(stimulation)->linearInterpolation = true;
 		stocksSettings->scatterPlotSeries->at(stimulation)->lineType = toVector(L"solid");
@@ -478,7 +478,7 @@ void Screen::createThePredictionPlot(
 		stocksSettings->scatterPlotSeries->at(stimulation)->color = CreateRGBColor(color_r, color_g, color_b);
 	}
 
-	stocksSettings->autoBoundaries = false;
+	stocksSettings->autoBoundaries = true;
 	stocksSettings->xMin = 0;
 	stocksSettings->xMax = days + 3;
 	stocksSettings->yMin = 0;
@@ -521,7 +521,7 @@ void LoadBitMapIntoOpenGLFormat(
 }
 
 void Screen::generateLargeStockPlot(
-	const std::map<boost::gregorian::date, float>& dateMap,
+	const std::map<boost::posix_time::ptime, float>& dateMap,
 	const std::string& stockName
 ) {
 	RGBABitmapImageReference* canvasReference;
@@ -552,7 +552,7 @@ void Screen::generateLargeStockPlot(
 	this->stocksSettings->scatterPlotSeries->at(0)->lineThickness = 3.0;
 	this->stocksSettings->scatterPlotSeries->at(0)->color = CreateRGBColor(1.0, 0.0, 0.0);
 
-	this->stocksSettings->autoBoundaries = false;
+	this->stocksSettings->autoBoundaries = true;
 	this->stocksSettings->xMin = 0;
 	this->stocksSettings->xMax = days + 3;
 	this->stocksSettings->yMin = 0;

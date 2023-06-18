@@ -12,6 +12,7 @@
 #include "vendor/stbi/stbi.h"
 #include "Engine/SYCLComputer.h"
 #include "Engine/HMC.h"
+#include "Engine/MetropolisHasting.h"
 
 
 class Application
@@ -19,7 +20,7 @@ class Application
 private:
 	GLFWwindow* window;
 	Screen screen;
-	std::map<boost::gregorian::date, float> data;
+	std::map<boost::posix_time::ptime, float> data;
 	std::map<std::string, int> deviceNameToWorkload;
 	AlgorithmParameter parameter;
 	WigginsAlgorithm* HMC_Wiggins;

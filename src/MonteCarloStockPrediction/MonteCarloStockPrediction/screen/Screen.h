@@ -15,7 +15,7 @@
 #include <cpr/cpr.h>
 #include <future>
 #include <nlohmann/json.hpp>
-#include <boost/date_time/gregorian/gregorian.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 #include <CL/sycl.hpp>
 #include <GLFW/glfw3.h>
 
@@ -79,11 +79,11 @@ private:
 
 
 	void generateLargeStockPlot(
-		const std::map<boost::gregorian::date, float>& dateMap,
+		const std::map<boost::posix_time::ptime, float>& dateMap,
 		const std::string& stockName
 	);
 
-	std::function<void(boost::gregorian::date, float)> m_populate_Data;
+	std::function<void(boost::posix_time::ptime, float)> m_populate_Data;
 	const std::vector<cl::sycl::device> m_AllDevice;
 	std::function<void(std::string, int)> m_populate_DeviceWorkloadPreference;
 	std::function<AlgorithmParameter& ()> m_parameterReference;
@@ -99,7 +99,7 @@ private:
 	unsigned char* largeStocksPlot;
 	unsigned char* largePredictedStocksPlot;
 	ScatterPlotSettings* stocksSettings;
-	std::map<boost::gregorian::date, float> internalStockData;
+	std::map<boost::posix_time::ptime, float> internalStockData;
 
 	unsigned char* algorithm_progress_screen;
 	void generateAlgorithmProgressPage();
@@ -114,7 +114,7 @@ private:
 	
 public:
 	Screen(
-		const std::function<void(boost::gregorian::date, float)> &populate_Data,
+		const std::function<void(boost::posix_time::ptime, float)> &populate_Data,
 		const std::vector<cl::sycl::device> &AllDevice,
 		const std::function<void(std::string, int)>& populate_DeviceWorkloadPreference,
 		const std::function<AlgorithmParameter& ()> &parameterReference,

@@ -13,6 +13,7 @@ WigginsAlgorithm::WigginsAlgorithm(
 		parameter.m_volatility_sigma.generateBuffer(parameter.m_DiscretCountOfContinuiosSpace)
 	}
 {
+	DumpToFileFloatVector(stocksdata);
 	this->iteration_count = 0;
 	int workloadTotal = 0;
 	std::vector<cl::sycl::device> devices = cl::sycl::device::get_devices();
@@ -172,3 +173,26 @@ AlgorithmResponse WigginsAlgorithm::get_response() {
 	return this->m_response;
 }
 
+
+
+extern SYCL_EXTERNAL float probability(
+	const ProbabilityDomain domain,
+	int timeSeriesLength,
+	oneapi::dpl::minstd_rand& engine,
+	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
+) {
+	const float minus_log_p = potential_energy_U(domain, timeSeriesLength, engine, returns);
+	return exp(-1.0f * minus_log_p);
+}
+
+uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float value) {
+	float delx = (upper - lower) / divisions;
+	uint32_t res = floor((value - lower) / delx);
+	if (res >= divisions) {
+		return divisions - 1;
+	}
+	if (res < 0) {
+		return 0;
+	}
+	return res;
+}

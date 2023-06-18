@@ -29,9 +29,7 @@ protected:
 	ProbabilityDomain start;
 
 	virtual void BurnIn() = 0;
-	/*cl::sycl::event run_inference(
-		cl::sycl::queue& q, uint32_t number_of_simulations,
-		uint32_t number_of_days, cl::sycl::buffer<float, 2> data);*/
+
 public:
 	WigginsAlgorithm(
 		const AlgorithmParameter &parameter,
@@ -74,3 +72,12 @@ extern SYCL_EXTERNAL ProbabilityDomain potential_energy_gradient(
 	oneapi::dpl::minstd_rand& engine,
 	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
 );
+
+extern SYCL_EXTERNAL float probability(
+	const ProbabilityDomain domain,
+	int timeSeriesLength,
+	oneapi::dpl::minstd_rand& engine,
+	const cl::sycl::accessor<float, 1, sycl::access::mode::read>& returns
+);
+
+uint32_t DistributionIndex(float lower, float upper, uint32_t divisions, float value);

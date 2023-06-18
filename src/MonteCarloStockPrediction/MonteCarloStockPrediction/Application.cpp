@@ -11,7 +11,7 @@ static inline bool file_exists(const std::string& name) {
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1024;
 Application::Application() :screen{ 
-    [this](boost::gregorian::date date, float value) {
+    [this](boost::posix_time::ptime date, float value) {
         this->data.insert(std::make_pair(date, value));
         //std::cout << boost::gregorian::to_simple_string(this->data.begin()->first) << std::endl;;
     },
@@ -35,7 +35,7 @@ Application::Application() :screen{
             dataIterator++;
             nextDataIterator++;
         }
-        this->HMC_Wiggins = new HMC(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
+        this->HMC_Wiggins = new MetropolisHasting(this->parameter, std::move(StocksData), this->deviceNameToWorkload);
     }, 
     [this]() {
         this->HMC_Wiggins->iterate();
@@ -72,6 +72,7 @@ Application::Application() :screen{
     },
         SCREEN_WIDTH, SCREEN_HEIGHT
 } {
+    std::cout << "Hello??" << std::endl;
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()){
         std::cout << "glfwInit failed. Terminating program" << std::endl;
