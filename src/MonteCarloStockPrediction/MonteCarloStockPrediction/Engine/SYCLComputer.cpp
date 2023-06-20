@@ -1,32 +1,52 @@
 #include "SYCLComputer.h"
 
-/*float SYCLComputer::WightedAverageExponentialWeight(const std::vector<float>& data, const float base) {
+
+
+std::vector<std::vector<float>> SYCLComputer::predict(
+	const float mu, const float sigma,
+	const float starting_price, const int number_of_simulations,
+	const int number_of_days
+) {
+	using namespace std;
 	using namespace sycl;
-	if (data.empty()) {
-		return 0;
-	}
-	const int dataSize = data.size();
-	auto dataSizeSycl = range<1>{ dataSize };
-	buffer dataGpu(data);
-	this->q.submit([&](handler& h) {
-		accessor dataGpuAccessor(dataGpu, h, read_write);
-	h.parallel_for(dataSizeSycl, [=](id<1> thread_id) {
-		dataGpuAccessor[thread_id] *= std::pow(base, thread_id);
-		});
-		});
-	for (int stride = 1 << (int)ceil(log2((double)dataSize) - 1); stride > 0; stride >>= 1) {
-		this->q.wait();
+	vector<vector<float>> result(number_of_simulations, vector<float>(number_of_days));
+	buffer<float, 2> gpuData(range<2>{number_of_simulations, number_of_days});
+	unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
+	const float drift = mu - sigma * sigma / 2;
+	{
 		this->q.submit([&](handler& h) {
-			accessor dataGpuAccessor(dataGpu, h, read_write);
-		h.parallel_for(stride, [=](id<1> thread_id) {
-			if (thread_id < stride && thread_id + stride < dataSize) {
-				dataGpuAccessor[thread_id] += dataGpuAccessor[thread_id + stride];
+			accessor resultAccessor(gpuData, h, read_write);
+
+
+			h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
+				oneapi::dpl::minstd_rand engine(seed, thread_id);
+				oneapi::dpl::normal_distribution<float> normal(0.0f, 1.0f);
+				const float return__ = drift + normal(engine) * sigma;
+				resultAccessor[thread_id][0] = starting_price * std::exp(return__);
+				});
+			}).wait();
+
+	}
+
+	this->q.submit([&](handler& h) {
+
+		accessor resultAccessor(gpuData, h, read_write);
+		h.parallel_for(range<1>(number_of_simulations), [=](id<1> thread_id) {
+			for (int day = 1; day < number_of_days; day++) {
+				int global_thread_id = number_of_simulations * thread_id + day;
+				oneapi::dpl::minstd_rand engine(seed, global_thread_id);
+				oneapi::dpl::normal_distribution<float> normal(0.0f, 1.0f);
+				const float return__ = drift + normal(engine) * sigma;
+				const float last_price = resultAccessor[thread_id][day - 1];
+				resultAccessor[thread_id][day] = last_price * std::exp(return__);
 			}
 			});
-			});
-	}
-	host_accessor result(dataGpu, read_only);
-
-	return result[0];
+		}).wait();
+		host_accessor resultHostAccessor(gpuData, read_only);
+		for (int sim = 0; sim < number_of_simulations; sim++) {
+			for (int day = 0; day < number_of_days; day++) {
+				result[sim][day] = resultHostAccessor[sim][day];
+			}
+		}
+		return result;
 }
-*/

@@ -262,19 +262,21 @@ void Screen::SixthScreenRender() {
 		ImGui::End();
 }
 void Screen::predict() {
-	const std::vector<std::vector<float> > prediction= this->m_predict(
-		this->sixthScreen.number_of_days_to_simulate,
-		this->sixthScreen.number_of_simulations_to_run
+		
+		const std::vector<std::vector<float> > prediction = this->m_predict(
+			this->sixthScreen.number_of_days_to_simulate,
+			this->sixthScreen.number_of_simulations_to_run
 		);
-	std::vector<float> StocksData;
-	int starting_date_offset = max(0, this->internalStockData.size() - 30);
-	auto dataIterator = this->internalStockData.begin();
-	std::advance(dataIterator, starting_date_offset);
-	while (dataIterator != this->internalStockData.end()) {
-		StocksData.push_back(dataIterator->second);
-		dataIterator++;
-	}
-	createThePredictionPlot(StocksData, prediction);
+		std::vector<float> StocksData;
+		int starting_date_offset = max(0, this->internalStockData.size() - 30);
+		auto dataIterator = this->internalStockData.begin();
+		std::advance(dataIterator, starting_date_offset);
+		while (dataIterator != this->internalStockData.end()) {
+			StocksData.push_back(dataIterator->second);
+			dataIterator++;
+		}
+		createThePredictionPlot(StocksData, prediction);
+
 }
 void Screen::LoadSixPointFifth() {
 	this->prediction_async = std::async(
@@ -332,10 +334,9 @@ void Screen::createThePredictionPlot(
 	for (int i = 0; i < days_before_prediction; i++) {
 		ys->at(i) = StocksData[i];
 	}
-	for (int stimulation = 0; stimulation <= number_of_simulations; stimulation++) {
-		xs_postsim->at(number_of_simulations - stimulation) = days_before_prediction  + stimulation;
+	for (int stimulation = 0; stimulation <= days_being_predicted ; stimulation++) {
+		xs_postsim->at(stimulation) = days_before_prediction  + stimulation;
 	}
-	float y_max = *std::max_element(StocksData.begin(), StocksData.end());
 
 	stocksSettings->scatterPlotSeries = new std::vector<ScatterPlotSeries*>(1 + number_of_simulations);
 	stocksSettings->scatterPlotSeries->at(0) = new ScatterPlotSeries();
@@ -350,15 +351,14 @@ void Screen::createThePredictionPlot(
 	std::uniform_real_distribution<> dist(0, 1);
 
 	for (int stimulation = 1; stimulation <= number_of_simulations; stimulation++) {
-		y_max = max(y_max, *std::max_element(prediction[stimulation-1].begin(), prediction[stimulation - 1].end()));
 		stocksSettings->scatterPlotSeries->at(stimulation) = new ScatterPlotSeries();
 		stocksSettings->scatterPlotSeries->at(stimulation)->xs = xs_postsim;
-		stocksSettings->scatterPlotSeries->at(stimulation)->ys = new std::vector<double>(number_of_simulations);
-		stocksSettings->scatterPlotSeries->at(stimulation)->ys->push_back(StocksData.back());
+		stocksSettings->scatterPlotSeries->at(stimulation)->ys = new std::vector<double>(days_being_predicted + 1);
+		stocksSettings->scatterPlotSeries->at(stimulation)->ys->at(0) = StocksData.back();
 		std::copy(
-			prediction[stimulation - 1].rbegin(),
-			prediction[stimulation - 1].rend(),
-			stocksSettings->scatterPlotSeries->at(stimulation)->ys->begin());
+			prediction[stimulation - 1].begin(),
+			prediction[stimulation - 1].end(),
+			stocksSettings->scatterPlotSeries->at(stimulation)->ys->begin() + 1);
 		stocksSettings->scatterPlotSeries->at(stimulation)->linearInterpolation = true;
 		stocksSettings->scatterPlotSeries->at(stimulation)->lineType = toVector(L"solid");
 		stocksSettings->scatterPlotSeries->at(stimulation)->lineThickness = 2.5;
@@ -369,10 +369,6 @@ void Screen::createThePredictionPlot(
 	}
 
 	stocksSettings->autoBoundaries = true;
-	stocksSettings->xMin = 0;
-	stocksSettings->xMax = days + 3;
-	stocksSettings->yMin = 0;
-	stocksSettings->yMax = y_max * 1.2;
 	stocksSettings->yLabel = toVector(L"Stock Price");
 	stocksSettings->xLabel = toVector(L"Time");
 	std::wstring widestr = std::wstring(this->thirdScreen.StockName.begin(), this->thirdScreen.StockName.end());
@@ -386,7 +382,11 @@ void Screen::createThePredictionPlot(
 
 	bool success = DrawScatterPlotFromSettings(canvasReference, stocksSettings, errorMessage);
 	if (!success) {
-		throw std::runtime_error("could not draw plot");
+		std::string error = "could not draw plot\n";
+		for (const auto error_msg : (*(errorMessage->string))) {
+			error += error_msg + "\n";
+		}
+		throw std::runtime_error(error);
 	}
 	this->largePredictedStocksPlot = new unsigned char[m_width * m_height * 4];
 	LoadBitMapIntoOpenGLFormat(this->largePredictedStocksPlot, m_width, m_height, canvasReference);
@@ -408,6 +408,8 @@ void LoadBitMapIntoOpenGLFormat(
 			largeStocksPlot[position + 3] = canvasReference->image->x->at(x_inverse)->y->at(y_inverse)->a * 255;
 		}
 	}
+	std::vector<double>* pngData = ConvertToPNG(canvasReference->image);
+	WriteToFile(pngData, "plot.png");
 }
 
 void Screen::generateLargeStockPlot(

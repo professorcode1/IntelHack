@@ -1,6 +1,9 @@
 # Intel One API Code Maven Hackathonn
 <img src="usage.gif">
 
+Here is a plot for the next 10 units with 100 simulations.
+<img src="plot.png">
+
 This is my submission for the Intel OneAPI Code Maven Hackahton conducted by Techgig. The problem statement was to use the OneAPI library to implement a Stock Prediction algorithm that uses Monte Carlo Sampling. 
 
 I implemented the paper [Modelling the probability of future stock returns- TOBIAS BRODD, ADRIAN DJERF](https://www.diva-portal.org/smash/get/diva2:1214365/FULLTEXT01.pdf).
